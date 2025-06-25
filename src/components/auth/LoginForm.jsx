@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, getUserRole } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -16,11 +18,17 @@ export default function LoginForm() {
     try {
       setError('');
       setLoading(true);
-      await login(email, password);
+      const userCredential = await login(email, password);
       
-      // Get user role and redirect to appropriate dashboard
-      const role = await getUserRole();
-      navigate(`/${role}-dashboard`);
+      // Get user role directly from Firestore using the user's UID
+      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        navigate(`/${userData.role}-dashboard`);
+      } else {
+        setError('User data not found');
+      }
     } catch (error) {
       setError('Failed to log in: ' + error.message);
     }
