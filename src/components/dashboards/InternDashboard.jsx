@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import OnboardingForm from './OnboardingForm';
 import ChecklistDisplay from './ChecklistDisplay';
@@ -9,15 +9,24 @@ import TimesheetForm from './TimesheetForm';
 export default function InternDashboard() {
   const { currentUser, logout } = useAuth();
   const [userProfile, setUserProfile] = useState(null);
+  const [mentorInfo, setMentorInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     async function fetchUserProfile() {
       if (currentUser) {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data());
+        try {
+          // Fetch user profile
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            setUserProfile(userDoc.data());
+          }
+
+          // Fetch mentor information
+          await fetchMentorInfo();
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
         }
       }
       setLoading(false);
@@ -25,6 +34,36 @@ export default function InternDashboard() {
 
     fetchUserProfile();
   }, [currentUser]);
+
+  const fetchMentorInfo = async () => {
+    try {
+      // Check if intern has a mentor assigned in intern_profiles
+      const internProfileQuery = query(
+        collection(db, 'intern_profiles'),
+        where('internUid', '==', currentUser.uid)
+      );
+      
+      const internProfileSnapshot = await getDocs(internProfileQuery);
+      
+      if (!internProfileSnapshot.empty) {
+        const internProfile = internProfileSnapshot.docs[0].data();
+        
+        if (internProfile.mentorUid) {
+          // Fetch mentor details
+          const mentorDoc = await getDoc(doc(db, 'users', internProfile.mentorUid));
+          if (mentorDoc.exists()) {
+            setMentorInfo({
+              ...mentorDoc.data(),
+              id: mentorDoc.id,
+              assignedAt: internProfile.assignedAt
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching mentor info:', error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -206,6 +245,45 @@ export default function InternDashboard() {
                     <div>
                       <dt className="text-sm font-medium text-gray-500">County Code</dt>
                       <dd className="mt-1 text-sm text-gray-900">{userProfile?.countyCode}</dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-sm font-medium text-gray-500">Assigned Mentor</dt>
+                      <dd className="mt-1 text-sm text-gray-900">
+                        {mentorInfo ? (
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0 h-8 w-8">
+                              <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span className="text-indigo-600 font-medium text-sm">
+                                  {mentorInfo.fullName?.charAt(0) || 'M'}
+                                </span>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{mentorInfo.fullName}</div>
+                              <div className="text-gray-500 text-xs">{mentorInfo.email}</div>
+                              {mentorInfo.assignedAt && (
+                                <div className="text-gray-400 text-xs">
+                                  Assigned: {new Date(mentorInfo.assignedAt.seconds * 1000).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <div className="flex-shrink-0 h-8 w-8">
+                              <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                <span className="text-gray-400 font-medium text-sm">?</span>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">No mentor assigned yet</div>
+                              <div className="text-gray-400 text-xs">
+                                Your mentor will be assigned by HR soon
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </dd>
                     </div>
                   </dl>
                 </div>

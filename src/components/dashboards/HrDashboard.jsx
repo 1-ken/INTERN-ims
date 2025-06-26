@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
+import MentorAssignment from './MentorAssignment';
 
 export default function HrDashboard() {
   const { currentUser, logout } = useAuth();
@@ -205,8 +206,8 @@ export default function HrDashboard() {
                     onChange={(e) => setFilter(e.target.value)}
                   >
                     <option value="all">All Departments</option>
-                    {departments.map((dept) => (
-                      <option key={dept} value={dept}>{dept}</option>
+                    {departments.map((dept, index) => (
+                      <option key={dept || `dept-${index}`} value={dept}>{dept}</option>
                     ))}
                   </select>
                 </div>
@@ -215,6 +216,11 @@ export default function HrDashboard() {
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Mentor Assignment */}
+          <div className="mb-6">
+            <MentorAssignment />
           </div>
 
           {/* Interns List */}

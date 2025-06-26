@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
+import MentorApproval from './MentorApproval';
 
 export default function MentorDashboard() {
   const { currentUser, logout } = useAuth();
@@ -126,6 +127,11 @@ export default function MentorDashboard() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Timesheet Approvals */}
+          <div className="mb-6">
+            <MentorApproval />
           </div>
 
           {/* Assigned Interns */}
