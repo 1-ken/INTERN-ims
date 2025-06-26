@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { DEPARTMENTS, KENYA_COUNTIES } from '../../data/constants';
 
 export default function SignupForm() {
   const [formData, setFormData] = useState({
@@ -126,30 +127,42 @@ export default function SignupForm() {
               <label htmlFor="department" className="block text-sm font-medium text-gray-700">
                 Department
               </label>
-              <input
+              <select
                 id="department"
                 name="department"
-                type="text"
                 required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                 value={formData.department}
                 onChange={handleChange}
-              />
+              >
+                <option value="">Select a department</option>
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label htmlFor="countyCode" className="block text-sm font-medium text-gray-700">
-                County Code
+                County
               </label>
-              <input
+              <select
                 id="countyCode"
                 name="countyCode"
-                type="number"
                 required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                 value={formData.countyCode}
                 onChange={handleChange}
-              />
+              >
+                <option value="">Select a county</option>
+                {KENYA_COUNTIES.map((county) => (
+                  <option key={county.code} value={county.code}>
+                    {county.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
