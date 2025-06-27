@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import MentorAssignment from './MentorAssignment';
+import HrTimesheetApproval from './HrTimesheetApproval';
 
 export default function HrDashboard() {
   const { currentUser, logout } = useAuth();
@@ -221,6 +222,11 @@ export default function HrDashboard() {
           {/* Mentor Assignment */}
           <div className="mb-6">
             <MentorAssignment />
+          </div>
+
+          {/* Timesheet Approval */}
+          <div className="mb-6">
+            <HrTimesheetApproval />
           </div>
 
           {/* Interns List */}
