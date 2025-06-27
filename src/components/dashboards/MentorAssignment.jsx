@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, addDoc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 export default function MentorAssignment() {
@@ -33,85 +33,50 @@ export default function MentorAssignment() {
 
   const fetchInternsNeedingMentors = async () => {
     try {
-      // First, try to get from intern_profiles collection
-      const internProfilesQuery = query(
-        collection(db, 'intern_profiles'),
-        where('mentorUid', '==', null)
+      // Get all interns from users collection
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('role', '==', 'intern')
       );
       
-      let internProfilesSnapshot = await getDocs(internProfilesQuery);
-      let internsWithoutMentors = [];
+      const usersSnapshot = await getDocs(usersQuery);
+      const internsWithoutMentors = [];
 
-      if (internProfilesSnapshot.empty) {
-        // If intern_profiles doesn't exist or is empty, get interns from users collection
-        const usersQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'intern')
+      // Check each intern for mentor assignment
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        
+        // Check if intern has a mentor assigned in intern_profiles
+        const profileQuery = query(
+          collection(db, 'intern_profiles'),
+          where('internUid', '==', userDoc.id)
         );
         
-        const usersSnapshot = await getDocs(usersQuery);
+        const profileSnapshot = await getDocs(profileQuery);
+        let hasMentor = false;
+        let profileId = null;
         
-        // Create intern_profiles for users who don't have mentors assigned
-        for (const userDoc of usersSnapshot.docs) {
-          const userData = userDoc.data();
-          
-          // Check if intern_profile already exists
-          const existingProfileQuery = query(
-            collection(db, 'intern_profiles'),
-            where('internUid', '==', userDoc.id)
-          );
-          const existingProfile = await getDocs(existingProfileQuery);
-          
-          if (existingProfile.empty) {
-            // Create new intern_profile
-            const profileData = {
-              internUid: userDoc.id,
-              mentorUid: null,
-              department: userData.department,
-              createdAt: new Date()
-            };
-            
-            await addDoc(collection(db, 'intern_profiles'), profileData);
-            
-            internsWithoutMentors.push({
-              id: userDoc.id,
-              profileId: null, // Will be set after creation
-              ...userData,
-              mentorUid: null
-            });
-          }
+        if (!profileSnapshot.empty) {
+          const profileData = profileSnapshot.docs[0].data();
+          profileId = profileSnapshot.docs[0].id;
+          hasMentor = profileData.mentorUid != null;
         }
         
-        // Refresh the query after creating profiles
-        internProfilesSnapshot = await getDocs(internProfilesQuery);
-      }
-
-      // Process intern profiles
-      for (const profileDoc of internProfilesSnapshot.docs) {
-        const profileData = profileDoc.data();
-        
-        // Get user data for this intern
-        try {
-          const userDocRef = doc(db, 'users', profileData.internUid);
-          const userDocSnap = await getDoc(userDocRef);
-          
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            internsWithoutMentors.push({
-              id: profileData.internUid,
-              profileId: profileDoc.id,
-              ...userData,
-              mentorUid: profileData.mentorUid
-            });
-          }
-        } catch (err) {
-          console.error('Error fetching user data for intern:', profileData.internUid, err);
+        // If no mentor assigned, add to list
+        if (!hasMentor) {
+          internsWithoutMentors.push({
+            id: userDoc.id,
+            profileId: profileId,
+            ...userData,
+            mentorUid: null
+          });
         }
       }
 
       setInternsNeedingMentors(internsWithoutMentors);
     } catch (err) {
       console.error('Error fetching interns needing mentors:', err);
+      setError('Failed to load interns needing mentors');
     }
   };
 
@@ -170,11 +135,13 @@ export default function MentorAssignment() {
     const selectedMentorId = selectedMentors[intern.id];
     if (!selectedMentorId) {
       setError('Please select a mentor first');
+      setTimeout(() => setError(''), 3000);
       return;
     }
 
     try {
-      // Update intern_profiles collection
+      setError('');
+      
       if (intern.profileId) {
         // Update existing profile
         await updateDoc(doc(db, 'intern_profiles', intern.profileId), {
@@ -182,20 +149,19 @@ export default function MentorAssignment() {
           assignedAt: new Date()
         });
       } else {
-        // Create new profile
-        await addDoc(collection(db, 'intern_profiles'), {
+        // Create new profile using setDoc with intern UID as document ID
+        await setDoc(doc(db, 'intern_profiles', intern.id), {
           internUid: intern.id,
           mentorUid: selectedMentorId,
           department: intern.department,
           assignedAt: new Date(),
-          createdAt: new Date()
+          createdAt: new Date(),
+          checklistProgress: [],
+          documents: {}
         });
       }
 
       setSuccess(`Mentor assigned successfully to ${intern.fullName}`);
-      
-      // Refresh data
-      await fetchData();
       
       // Clear selection
       setSelectedMentors(prev => {
@@ -203,12 +169,16 @@ export default function MentorAssignment() {
         delete updated[intern.id];
         return updated;
       });
+      
+      // Refresh data
+      await fetchData();
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error assigning mentor:', err);
-      setError('Failed to assign mentor');
+      setError(`Failed to assign mentor: ${err.message}`);
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -237,86 +207,99 @@ export default function MentorAssignment() {
       )}
 
       {internsNeedingMentors.length === 0 ? (
-        <p className="text-gray-500 text-center py-4">All interns have been assigned mentors</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Intern
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Department
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Available Mentors
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {internsNeedingMentors.map((intern) => {
-                const eligibleMentors = getEligibleMentors(intern.department);
-                return (
-                  <tr key={intern.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-gray-500 font-medium">
-                              {(intern.fullName || 'U').charAt(0)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {intern.fullName || 'Unnamed Intern'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {intern.email || 'No email'}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {intern.department}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {eligibleMentors.length > 0 ? (
-                        <select
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          value={selectedMentors[intern.id] || ''}
-                          onChange={(e) => handleMentorSelection(intern.id, e.target.value)}
-                        >
-                          <option value="">Select a mentor</option>
-                          {eligibleMentors.map((mentor) => (
-                            <option key={mentor.id} value={mentor.id}>
-                              {mentor.fullName} ({mentorLoads[mentor.id] || 0}/5 interns)
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-red-500">No available mentors in this department</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => assignMentor(intern)}
-                        disabled={!selectedMentors[intern.id] || eligibleMentors.length === 0}
-                        className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1 rounded-md text-sm"
-                      >
-                        Assign Mentor
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="text-center py-8">
+          <div className="text-gray-500 text-lg mb-2">All interns have been assigned mentors</div>
+          <p className="text-gray-400 text-sm">
+            New interns will appear here when they register and need mentor assignment.
+          </p>
         </div>
+      ) : (
+        <>
+          <div className="mb-4">
+            <p className="text-sm text-gray-600">
+              {internsNeedingMentors.length} intern{internsNeedingMentors.length !== 1 ? 's' : ''} need{internsNeedingMentors.length === 1 ? 's' : ''} mentor assignment
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Intern
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Department
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Available Mentors
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {internsNeedingMentors.map((intern) => {
+                  const eligibleMentors = getEligibleMentors(intern.department);
+                  return (
+                    <tr key={intern.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-500 font-medium">
+                                {(intern.fullName || 'U').charAt(0)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {intern.fullName || 'Unnamed Intern'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {intern.email || 'No email'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {intern.department}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {eligibleMentors.length > 0 ? (
+                          <select
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            value={selectedMentors[intern.id] || ''}
+                            onChange={(e) => handleMentorSelection(intern.id, e.target.value)}
+                          >
+                            <option value="">Select a mentor</option>
+                            {eligibleMentors.map((mentor) => (
+                              <option key={mentor.id} value={mentor.id}>
+                                {mentor.fullName} ({mentorLoads[mentor.id] || 0}/5 interns)
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-sm text-red-500">No available mentors in this department</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button
+                          onClick={() => assignMentor(intern)}
+                          disabled={!selectedMentors[intern.id] || eligibleMentors.length === 0}
+                          className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1 rounded-md text-sm"
+                        >
+                          Assign Mentor
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

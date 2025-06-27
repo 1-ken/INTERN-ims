@@ -4,6 +4,7 @@ import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firesto
 import { db } from '../../firebase';
 import MentorAssignment from './MentorAssignment';
 import HrTimesheetApproval from './HrTimesheetApproval';
+import ChecklistManagement from './ChecklistManagement';
 
 export default function HrDashboard() {
   const { currentUser, logout } = useAuth();
@@ -227,6 +228,11 @@ export default function HrDashboard() {
           {/* Timesheet Approval */}
           <div className="mb-6">
             <HrTimesheetApproval />
+          </div>
+
+          {/* Checklist Management */}
+          <div className="mb-6">
+            <ChecklistManagement />
           </div>
 
           {/* Interns List */}
