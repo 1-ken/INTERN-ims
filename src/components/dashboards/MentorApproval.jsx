@@ -119,9 +119,39 @@ export default function MentorApproval() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {timesheet.week}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {timesheet.hoursWorked} hours
-                  </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div className="font-medium">
+                        {timesheet.totalHours || timesheet.hoursWorked} hours total
+                      </div>
+                      {timesheet.dailyHours && (
+                        <div className="mt-2 space-y-1">
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map((day) => {
+                            const hours = timesheet.dailyHours[day] || 0;
+                            const description = timesheet.dailyDescriptions?.[day] || '';
+                            if (hours > 0 || description) {
+                              return (
+                                <div key={day} className="text-xs">
+                                  <span className="font-medium text-gray-700 capitalize">
+                                    {day}: {hours}h
+                                  </span>
+                                  {description && (
+                                    <div className="text-gray-500 ml-2 italic">
+                                      "{description}"
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      )}
+                      {!timesheet.dailyHours && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Legacy timesheet format
+                        </div>
+                      )}
+                    </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {timesheet.submittedAt?.toLocaleDateString() || 'Unknown'}
                   </td>
