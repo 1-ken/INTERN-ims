@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import MentorAssignment from './MentorAssignment';
 import HrTimesheetApproval from './HrTimesheetApproval';
 import ChecklistManagement from './ChecklistManagement';
+import moment from 'moment';
 
 export default function HrDashboard() {
   const { currentUser, logout } = useAuth();
@@ -15,35 +16,63 @@ export default function HrDashboard() {
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    async function fetchData() {
-      if (currentUser) {
-        try {
-          // Fetch HR profile
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            setUserProfile(userDoc.data());
-          }
-
-          // Fetch all interns
-          const internsSnapshot = await getDocs(collection(db, 'users'));
-          const internsList = [];
-          internsSnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.role === 'intern') {
-              internsList.push({ id: doc.id, ...data });
-            }
-          });
-          setInterns(internsList);
-        } catch (error) {
-          console.error('Error fetching data:', error);
+  const fetchData = async () => {
+    if (currentUser) {
+      try {
+        setLoading(true);
+        // Fetch HR profile
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          setUserProfile(userDoc.data());
         }
-      }
-      setLoading(false);
-    }
 
+        // Fetch all interns with their contract information
+        const internsSnapshot = await getDocs(collection(db, 'users'));
+        const internsList = [];
+        
+        for (const userDoc of internsSnapshot.docs) {
+          const userData = userDoc.data();
+          if (userData.role === 'intern') {
+            // Get contract information from intern_profiles
+            const profileDoc = await getDoc(doc(db, 'intern_profiles', userDoc.id));
+            let contractInfo = {};
+            
+            if (profileDoc.exists()) {
+              const profileData = profileDoc.data();
+              contractInfo = {
+                contractType: profileData.contractType || null,
+                contractStartDate: profileData.contractStartDate || null,
+                contractEndDate: profileData.contractEndDate || null,
+                contractDuration: profileData.contractDuration || null,
+                mentorUid: profileData.mentorUid || null
+              };
+            }
+            
+            internsList.push({ 
+              id: userDoc.id, 
+              ...userData,
+              ...contractInfo
+            });
+          }
+        }
+        
+        setInterns(internsList);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [currentUser]);
+
+  // Function to refresh data - can be called from child components
+  const refreshData = () => {
+    fetchData();
+  };
 
   const handleLogout = async () => {
     try {
@@ -222,7 +251,7 @@ export default function HrDashboard() {
 
           {/* Mentor Assignment */}
           <div className="mb-6">
-            <MentorAssignment />
+            <MentorAssignment onDataChange={refreshData} />
           </div>
 
           {/* Timesheet Approval */}
@@ -273,6 +302,9 @@ export default function HrDashboard() {
                         County Code
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Contract
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -307,6 +339,27 @@ export default function HrDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{intern.countyCode}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {intern.contractType ? (
+                              <div>
+                                <span className="capitalize font-medium">{intern.contractType}</span>
+                                {intern.contractDuration && (
+                                  <div className="text-xs text-gray-500">
+                                    {intern.contractDuration} {intern.contractType === 'monthly' ? 'month(s)' : 'year(s)'}
+                                  </div>
+                                )}
+                                {intern.contractEndDate && (
+                                  <div className="text-xs text-gray-500">
+                                    Ends: {moment(intern.contractEndDate.seconds * 1000).format('MMM DD, YYYY')}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">Not set</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
@@ -364,6 +417,55 @@ export default function HrDashboard() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700">County Code</label>
                         <p className="mt-1 text-sm text-gray-900">{selectedIntern.countyCode || 'No county code assigned'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Contract Information</label>
+                        <div className="mt-1 text-sm text-gray-900">
+                          {selectedIntern.contractType ? (
+                            <div className="space-y-2">
+                              <div>
+                                <span className="font-medium">Type:</span> <span className="capitalize">{selectedIntern.contractType}</span>
+                              </div>
+                              {selectedIntern.contractDuration && (
+                                <div>
+                                  <span className="font-medium">Duration:</span> {selectedIntern.contractDuration} {selectedIntern.contractType === 'monthly' ? 'month(s)' : 'year(s)'}
+                                </div>
+                              )}
+                              {selectedIntern.contractStartDate && (
+                                <div>
+                                  <span className="font-medium">Start Date:</span> {moment(selectedIntern.contractStartDate.seconds * 1000).format('MMM DD, YYYY')}
+                                </div>
+                              )}
+                              {selectedIntern.contractEndDate && (
+                                <div>
+                                  <span className="font-medium">End Date:</span> {moment(selectedIntern.contractEndDate.seconds * 1000).format('MMM DD, YYYY')}
+                                </div>
+                              )}
+                              {selectedIntern.contractStartDate && selectedIntern.contractEndDate && (
+                                <div>
+                                  <span className="font-medium">Time Remaining:</span> 
+                                  <span className="ml-1 text-indigo-600">
+                                    {(() => {
+                                      const now = moment();
+                                      const endDate = moment(selectedIntern.contractEndDate.seconds * 1000);
+                                      const daysRemaining = endDate.diff(now, 'days');
+                                      
+                                      if (daysRemaining > 0) {
+                                        return `${daysRemaining} day(s) remaining`;
+                                      } else if (daysRemaining === 0) {
+                                        return 'Expires today';
+                                      } else {
+                                        return `Expired ${Math.abs(daysRemaining)} day(s) ago`;
+                                      }
+                                    })()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">No contract set</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

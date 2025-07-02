@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import moment from 'moment';
 
-export default function MentorAssignment() {
+export default function MentorAssignment({ onDataChange }) {
   const [internsNeedingMentors, setInternsNeedingMentors] = useState([]);
   const [availableMentors, setAvailableMentors] = useState([]);
   const [mentorLoads, setMentorLoads] = useState({});
@@ -10,6 +11,9 @@ export default function MentorAssignment() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedMentors, setSelectedMentors] = useState({});
+  const [contractData, setContractData] = useState({});
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [selectedInternForContract, setSelectedInternForContract] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -131,10 +135,40 @@ export default function MentorAssignment() {
     }));
   };
 
-  const assignMentor = async (intern) => {
+  const openContractModal = (intern) => {
+    setSelectedInternForContract(intern);
+    setContractData({
+      contractType: '',
+      contractStartDate: moment().format('YYYY-MM-DD'),
+      duration: 1
+    });
+    setShowContractModal(true);
+  };
+
+  const assignMentorWithContract = async () => {
+    const intern = selectedInternForContract;
     const selectedMentorId = selectedMentors[intern.id];
+    
     if (!selectedMentorId) {
       setError('Please select a mentor first');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (!contractData.contractType) {
+      setError('Please select a contract type');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (!contractData.contractStartDate) {
+      setError('Please set contract start date');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (!contractData.duration || contractData.duration < 1) {
+      setError('Please set a valid duration');
       setTimeout(() => setError(''), 3000);
       return;
     }
@@ -142,26 +176,44 @@ export default function MentorAssignment() {
     try {
       setError('');
       
+      // Calculate end date based on contract type and duration
+      const startDate = moment(contractData.contractStartDate);
+      let endDate;
+      
+      if (contractData.contractType === 'monthly') {
+        endDate = startDate.clone().add(contractData.duration, 'months');
+      } else if (contractData.contractType === 'yearly') {
+        endDate = startDate.clone().add(contractData.duration, 'years');
+      }
+      
+      const profileData = {
+        mentorUid: selectedMentorId,
+        assignedAt: new Date(),
+        contractType: contractData.contractType,
+        contractStartDate: startDate.toDate(),
+        contractEndDate: endDate.toDate(),
+        contractDuration: contractData.duration,
+        contractCreatedAt: new Date()
+      };
+
       if (intern.profileId) {
         // Update existing profile
-        await updateDoc(doc(db, 'intern_profiles', intern.profileId), {
-          mentorUid: selectedMentorId,
-          assignedAt: new Date()
-        });
+        await updateDoc(doc(db, 'intern_profiles', intern.profileId), profileData);
       } else {
         // Create new profile using setDoc with intern UID as document ID
         await setDoc(doc(db, 'intern_profiles', intern.id), {
           internUid: intern.id,
-          mentorUid: selectedMentorId,
           department: intern.department,
-          assignedAt: new Date(),
           createdAt: new Date(),
           checklistProgress: [],
-          documents: {}
+          documents: {},
+          ...profileData
         });
       }
 
-      setSuccess(`Mentor assigned successfully to ${intern.fullName}`);
+      setSuccess(`Mentor and contract assigned successfully to ${intern.fullName}`);
+      setShowContractModal(false);
+      setSelectedInternForContract(null);
       
       // Clear selection
       setSelectedMentors(prev => {
@@ -172,14 +224,30 @@ export default function MentorAssignment() {
       
       // Refresh data
       await fetchData();
+      // Notify parent component to refresh data
+      if (onDataChange) {
+        onDataChange();
+      }
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      console.error('Error assigning mentor:', err);
-      setError(`Failed to assign mentor: ${err.message}`);
+      console.error('Error assigning mentor and contract:', err);
+      setError(`Failed to assign mentor and contract: ${err.message}`);
       setTimeout(() => setError(''), 5000);
     }
+  };
+
+  const assignMentor = async (intern) => {
+    const selectedMentorId = selectedMentors[intern.id];
+    if (!selectedMentorId) {
+      setError('Please select a mentor first');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    // Open contract modal for setting contract details
+    openContractModal(intern);
   };
 
   if (loading) {
@@ -290,7 +358,7 @@ export default function MentorAssignment() {
                           disabled={!selectedMentors[intern.id] || eligibleMentors.length === 0}
                           className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1 rounded-md text-sm"
                         >
-                          Assign Mentor
+                          Assign Mentor & Contract
                         </button>
                       </td>
                     </tr>
@@ -300,6 +368,125 @@ export default function MentorAssignment() {
             </table>
           </div>
         </>
+      )}
+
+      {/* Contract Modal */}
+      {showContractModal && selectedInternForContract && (
+        <div className="fixed z-50 inset-0 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div 
+              className="fixed inset-0 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => {
+                setShowContractModal(false);
+                setSelectedInternForContract(null);
+                setError('');
+              }}
+            >
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <div 
+              className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                      Set Contract for {selectedInternForContract.fullName}
+                    </h3>
+                    
+                    {error && (
+                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                        <p className="text-red-600 text-sm">{error}</p>
+                      </div>
+                    )}
+                    
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Contract Type
+                        </label>
+                        <select
+                          value={contractData.contractType}
+                          onChange={(e) => setContractData({...contractData, contractType: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="">Select contract type</option>
+                          <option value="monthly">Monthly</option>
+                          <option value="yearly">Yearly</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Contract Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={contractData.contractStartDate}
+                          onChange={(e) => setContractData({...contractData, contractStartDate: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Duration ({contractData.contractType === 'monthly' ? 'Months' : contractData.contractType === 'yearly' ? 'Years' : 'Duration'})
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={contractData.contractType === 'monthly' ? '24' : '5'}
+                          value={contractData.duration}
+                          onChange={(e) => setContractData({...contractData, duration: parseInt(e.target.value) || 1})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          placeholder={contractData.contractType === 'monthly' ? 'Number of months' : contractData.contractType === 'yearly' ? 'Number of years' : 'Duration'}
+                        />
+                      </div>
+
+                      {contractData.contractStartDate && contractData.contractType && contractData.duration && (
+                        <div className="bg-blue-50 p-3 rounded-md">
+                          <p className="text-sm text-blue-700">
+                            <strong>Contract Period:</strong><br/>
+                            Start: {moment(contractData.contractStartDate).format('MMM DD, YYYY')}<br/>
+                            End: {contractData.contractType === 'monthly' 
+                              ? moment(contractData.contractStartDate).add(contractData.duration, 'months').format('MMM DD, YYYY')
+                              : contractData.contractType === 'yearly'
+                              ? moment(contractData.contractStartDate).add(contractData.duration, 'years').format('MMM DD, YYYY')
+                              : 'N/A'
+                            }<br/>
+                            Duration: {contractData.duration} {contractData.contractType === 'monthly' ? 'month(s)' : contractData.contractType === 'yearly' ? 'year(s)' : ''}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={assignMentorWithContract}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Assign Mentor & Contract
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowContractModal(false);
+                    setSelectedInternForContract(null);
+                    setError('');
+                  }}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -4,11 +4,13 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { db } from '../../firebase';
 import OnboardingChecklist from './OnboardingChecklist';
 import TimesheetForm from './TimesheetForm';
+import moment from 'moment';
 
 export default function InternDashboard() {
   const { currentUser, logout } = useAuth();
   const [userProfile, setUserProfile] = useState(null);
   const [mentorInfo, setMentorInfo] = useState(null);
+  const [contractInfo, setContractInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
 
@@ -22,8 +24,8 @@ export default function InternDashboard() {
             setUserProfile(userDoc.data());
           }
 
-          // Fetch mentor information
-          await fetchMentorInfo();
+          // Fetch mentor and contract information
+          await fetchMentorAndContractInfo();
         } catch (error) {
           console.error('Error fetching user profile:', error);
         }
@@ -34,7 +36,7 @@ export default function InternDashboard() {
     fetchUserProfile();
   }, [currentUser]);
 
-  const fetchMentorInfo = async () => {
+  const fetchMentorAndContractInfo = async () => {
     try {
       // Check if intern has a mentor assigned in intern_profiles
       const internProfileQuery = query(
@@ -46,6 +48,16 @@ export default function InternDashboard() {
       
       if (!internProfileSnapshot.empty) {
         const internProfile = internProfileSnapshot.docs[0].data();
+        
+        // Set contract information
+        if (internProfile.contractType) {
+          setContractInfo({
+            contractType: internProfile.contractType,
+            contractStartDate: internProfile.contractStartDate,
+            contractEndDate: internProfile.contractEndDate,
+            contractCreatedAt: internProfile.contractCreatedAt
+          });
+        }
         
         if (internProfile.mentorUid) {
           // Fetch mentor details
@@ -60,7 +72,43 @@ export default function InternDashboard() {
         }
       }
     } catch (error) {
-      console.error('Error fetching mentor info:', error);
+      console.error('Error fetching mentor and contract info:', error);
+    }
+  };
+
+  const getContractStatus = () => {
+    if (!contractInfo || !contractInfo.contractStartDate || !contractInfo.contractEndDate) {
+      return { status: 'No Contract', color: 'bg-gray-100 text-gray-800', timeRemaining: null };
+    }
+    
+    const now = moment();
+    const startDate = moment(contractInfo.contractStartDate.seconds * 1000);
+    const endDate = moment(contractInfo.contractEndDate.seconds * 1000);
+    
+    if (now.isBefore(startDate)) {
+      const daysUntilStart = startDate.diff(now, 'days');
+      return { 
+        status: 'Upcoming', 
+        color: 'bg-blue-100 text-blue-800',
+        timeRemaining: `Starts in ${daysUntilStart} day${daysUntilStart !== 1 ? 's' : ''}`
+      };
+    } else if (now.isBetween(startDate, endDate)) {
+      const daysRemaining = endDate.diff(now, 'days');
+      const hoursRemaining = endDate.diff(now, 'hours') % 24;
+      return { 
+        status: 'Active', 
+        color: 'bg-green-100 text-green-800',
+        timeRemaining: daysRemaining > 0 
+          ? `${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining`
+          : `${hoursRemaining} hour${hoursRemaining !== 1 ? 's' : ''} remaining`
+      };
+    } else {
+      const daysExpired = now.diff(endDate, 'days');
+      return { 
+        status: 'Expired', 
+        color: 'bg-red-100 text-red-800',
+        timeRemaining: `Expired ${daysExpired} day${daysExpired !== 1 ? 's' : ''} ago`
+      };
     }
   };
 
@@ -149,7 +197,7 @@ export default function InternDashboard() {
                     <dt className="text-sm font-medium text-gray-500">County Code</dt>
                     <dd className="mt-1 text-sm text-gray-900">{userProfile?.countyCode}</dd>
                   </div>
-                  <div className="sm:col-span-2">
+                  <div>
                     <dt className="text-sm font-medium text-gray-500">Assigned Mentor</dt>
                     <dd className="mt-1 text-sm text-gray-900">
                       {mentorInfo ? (
@@ -185,6 +233,31 @@ export default function InternDashboard() {
                             </div>
                           </div>
                         </div>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Contract Information</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {contractInfo ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="capitalize font-medium">{contractInfo.contractType}</span>
+                            <span className={`px-2 py-1 text-xs rounded-full ${getContractStatus().color}`}>
+                              {getContractStatus().status}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {moment(contractInfo.contractStartDate.seconds * 1000).format('MMM DD, YYYY')} - {moment(contractInfo.contractEndDate.seconds * 1000).format('MMM DD, YYYY')}
+                          </div>
+                          {getContractStatus().timeRemaining && (
+                            <div className="text-xs font-medium text-indigo-600">
+                              {getContractStatus().timeRemaining}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-gray-500">No contract assigned yet</div>
                       )}
                     </dd>
                   </div>
