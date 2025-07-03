@@ -5,12 +5,15 @@ import { db } from '../../firebase';
 import MentorAssignment from './MentorAssignment';
 import HrTimesheetApproval from './HrTimesheetApproval';
 import ChecklistManagement from './ChecklistManagement';
+import { KENYA_INSTITUTIONS } from '../../data/institutions';
+import { KENYA_COUNTIES } from '../../data/constants';
 import moment from 'moment';
 
 export default function HrDashboard() {
   const { currentUser, logout } = useAuth();
   const [userProfile, setUserProfile] = useState(null);
   const [interns, setInterns] = useState([]);
+  const [attachees, setAttachees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [filter, setFilter] = useState('all');
@@ -28,11 +31,13 @@ export default function HrDashboard() {
         }
 
         // Fetch all interns with their contract information
-        const internsSnapshot = await getDocs(collection(db, 'users'));
+        const usersSnapshot = await getDocs(collection(db, 'users'));
         const internsList = [];
+        const attacheesList = [];
         
-        for (const userDoc of internsSnapshot.docs) {
+        for (const userDoc of usersSnapshot.docs) {
           const userData = userDoc.data();
+          
           if (userData.role === 'intern') {
             // Get contract information from intern_profiles
             const profileDoc = await getDoc(doc(db, 'intern_profiles', userDoc.id));
@@ -54,10 +59,32 @@ export default function HrDashboard() {
               ...userData,
               ...contractInfo
             });
+          } else if (userData.role === 'attachee') {
+            // Get contract information from attachee_profiles
+            const profileDoc = await getDoc(doc(db, 'attachee_profiles', userDoc.id));
+            let contractInfo = {};
+            
+            if (profileDoc.exists()) {
+              const profileData = profileDoc.data();
+              contractInfo = {
+                contractType: profileData.contractType || null,
+                contractStartDate: profileData.contractStartDate || null,
+                contractEndDate: profileData.contractEndDate || null,
+                contractDuration: profileData.contractDuration || null,
+                mentorUid: profileData.mentorUid || null
+              };
+            }
+            
+            attacheesList.push({ 
+              id: userDoc.id, 
+              ...userData,
+              ...contractInfo
+            });
           }
         }
         
         setInterns(internsList);
+        setAttachees(attacheesList);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -92,7 +119,16 @@ export default function HrDashboard() {
     return intern.department === filter && matchesSearch;
   });
 
-  const departments = [...new Set(interns.map(intern => intern.department))];
+  const filteredAttachees = attachees.filter(attachee => {
+    const matchesSearch = (attachee.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (attachee.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (attachee.department || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (filter === 'all') return matchesSearch;
+    return attachee.department === filter && matchesSearch;
+  });
+
+  const departments = [...new Set([...interns.map(intern => intern.department), ...attachees.map(attachee => attachee.department)])];
 
   if (loading) {
     return (
@@ -140,6 +176,16 @@ export default function HrDashboard() {
                 Interns List
               </button>
               <button
+                onClick={() => setActiveTab('attachees')}
+                className={`${
+                  activeTab === 'attachees'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Attachees List
+              </button>
+              <button
                 onClick={() => setActiveTab('mentors')}
                 className={`${
                   activeTab === 'mentors'
@@ -182,15 +228,15 @@ export default function HrDashboard() {
             {/* ... [Stats cards remain the same] ... */}
           </div>
 
-          {/* Filters and Search - Only show for Interns tab */}
-          {activeTab === 'interns' && (
+          {/* Filters and Search - Only show for Interns and Attachees tabs */}
+          {(activeTab === 'interns' || activeTab === 'attachees') && (
             <div className="bg-white shadow rounded-lg mb-6">
               <div className="p-4">
                 <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-4">
                   <div className="flex-1">
                     <input
                       type="text"
-                      placeholder="Search interns..."
+                      placeholder={`Search ${activeTab}...`}
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -209,7 +255,7 @@ export default function HrDashboard() {
                     </select>
                   </div>
                   <button className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Add New Intern
+                    Add New {activeTab === 'interns' ? 'Intern' : 'Attachee'}
                   </button>
                 </div>
               </div>
@@ -242,7 +288,7 @@ export default function HrDashboard() {
                   Interns List
                 </h3>
                 <span className="text-sm text-gray-500">
-                  Showing {filteredInterns.length} of {interns.length} interns
+                  Showing {filteredInterns.length} of {interns.length + attachees.length} people
                 </span>
               </div>
               <div className="border-t border-gray-200">
@@ -264,13 +310,13 @@ export default function HrDashboard() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Intern
+                          Name
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Department
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          County Code
+                          County
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Contract
@@ -297,7 +343,12 @@ export default function HrDashboard() {
                               </div>
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">
-                                  {intern.fullName || 'Unnamed Intern'}
+                                  {intern.fullName || `Unnamed ${intern.role === 'attachee' ? 'Attachee' : 'Intern'}`}
+                                  {intern.role === 'attachee' && (
+                                    <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                      Attachee
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-sm text-gray-500">
                                   {intern.email || 'No email provided'}
@@ -309,7 +360,9 @@ export default function HrDashboard() {
                             <div className="text-sm text-gray-900">{intern.department}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{intern.countyCode}</div>
+                            <div className="text-sm text-gray-900">
+                              {KENYA_COUNTIES.find(county => county.code === intern.countyCode)?.name || 'Unknown County'}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
@@ -356,31 +409,176 @@ export default function HrDashboard() {
               </div>
             </div>
           )}
+
+          {activeTab === 'attachees' && (
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Attachees List
+                </h3>
+                <span className="text-sm text-gray-500">
+                  Showing {filteredAttachees.length} of {attachees.length} attachees
+                </span>
+              </div>
+              <div className="border-t border-gray-200">
+                {filteredAttachees.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-gray-500 text-lg mb-4">No attachees found</div>
+                    <p className="text-gray-400 mb-6">
+                      {attachees.length === 0 
+                        ? "No attachees have been registered yet. Create some attachee accounts to see them here."
+                        : "No attachees match your current search criteria."
+                      }
+                    </p>
+                    <button className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                      Add New Attachee
+                    </button>
+                  </div>
+                ) : (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Attachee
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Department
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Institution
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contract
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredAttachees.map((attachee) => (
+                        <tr key={attachee.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-full bg-blue-200 flex items-center justify-center">
+                                <span className="text-blue-600 font-medium">
+                                  {(attachee.fullName || 'U').charAt(0)}
+                                </span>
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {attachee.fullName || 'Unnamed Attachee'}
+                                  <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                    Attachee
+                                  </span>
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {attachee.email || 'No email provided'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{attachee.department}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {KENYA_INSTITUTIONS.find(inst => inst.id === attachee.institution)?.name || 'Unknown Institution'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {attachee.contractType ? (
+                                <div>
+                                  <span className="capitalize font-medium">{attachee.contractType}</span>
+                                  {attachee.contractDuration && (
+                                    <div className="text-xs text-gray-500">
+                                      {attachee.contractDuration} {attachee.contractType === 'monthly' ? 'month(s)' : 'year(s)'}
+                                    </div>
+                                  )}
+                                  {attachee.contractEndDate && (
+                                    <div className="text-xs text-gray-500">
+                                      Ends: {moment(attachee.contractEndDate.seconds * 1000).format('MMM DD, YYYY')}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">Not set</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                              Active
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => setSelectedIntern(attachee)}
+                              className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            >
+                              View
+                            </button>
+                            <button className="text-red-600 hover:text-red-900">
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Intern Details Modal */}
+      {/* Person Details Modal */}
       {selectedIntern && (
         <div className="fixed z-50 inset-0 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div 
+              className="fixed inset-0 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setSelectedIntern(null)}
+            >
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div 
+              className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                     <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Intern Details
+                      {selectedIntern.role === 'attachee' ? 'Attachee' : 'Intern'} Details
                     </h3>
                     <div className="mt-2 space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                        <p className="mt-1 text-sm text-gray-900">{selectedIntern.fullName || 'Unnamed Intern'}</p>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedIntern.fullName || `Unnamed ${selectedIntern.role === 'attachee' ? 'Attachee' : 'Intern'}`}
+                          {selectedIntern.role === 'attachee' && (
+                            <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                              Attachee
+                            </span>
+                          )}
+                        </p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Email</label>
                         <p className="mt-1 text-sm text-gray-900">{selectedIntern.email || 'No email provided'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Role</label>
+                        <p className="mt-1 text-sm text-gray-900 capitalize">{selectedIntern.role || 'No role assigned'}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Department</label>

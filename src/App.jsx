@@ -4,6 +4,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginForm from './components/auth/LoginForm';
 import SignupForm from './components/auth/SignupForm';
 import InternDashboard from './components/dashboards/InternDashboard';
+import AttacheeDashboard from './components/dashboards/AttacheeDashboard';
 import HrDashboard from './components/dashboards/HrDashboard';
 import MentorDashboard from './components/dashboards/MentorDashboard';
 import CountyLiaisonDashboard from './components/dashboards/CountyLiaisonDashboard';
@@ -24,6 +25,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['intern']}>
                 <InternDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/attachee-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['attachee']}>
+                <AttacheeDashboard />
               </ProtectedRoute>
             }
           />

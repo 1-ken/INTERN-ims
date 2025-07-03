@@ -87,13 +87,14 @@ export const initializeChecklistTemplates = async () => {
 export const createDefaultChecklist = async (countyCode) => {
   const defaultTemplate = {
     countyCode: parseInt(countyCode),
+    type: 'county',
     items: [
-      "Submit National ID Copy",
-      "Submit KRA PIN Certificate",
-      "Sign Internship Agreement",
-      "Submit Bank Account Details",
-      "Complete Personal Information Form",
-      "Submit Academic Documents"
+      { name: "Submit National ID Copy", type: "file", required: true },
+      { name: "Submit KRA PIN Certificate", type: "file", required: true },
+      { name: "Sign Internship Agreement", type: "file", required: true },
+      { name: "Submit Bank Account Details", type: "file", required: true },
+      { name: "Complete Personal Information Form", type: "text", required: true },
+      { name: "Submit Academic Documents", type: "file", required: true }
     ]
   };
 
@@ -103,6 +104,32 @@ export const createDefaultChecklist = async (countyCode) => {
     return defaultTemplate;
   } catch (error) {
     console.error(`Error creating default checklist for county ${countyCode}:`, error);
+    throw error;
+  }
+};
+
+// Function to create a default checklist for any institution not in the templates
+export const createDefaultInstitutionChecklist = async (institutionKey) => {
+  const defaultTemplate = {
+    institutionKey: institutionKey,
+    type: 'institution',
+    items: [
+      { name: "Submit National ID Copy", type: "file", required: true },
+      { name: "Submit Student ID Copy", type: "file", required: true },
+      { name: "Submit Academic Transcripts", type: "file", required: true },
+      { name: "Sign Attachment Agreement", type: "file", required: true },
+      { name: "Submit Bank Account Details", type: "file", required: true },
+      { name: "Complete Personal Information Form", type: "text", required: true },
+      { name: "Submit Supervisor Recommendation Letter", type: "file", required: true }
+    ]
+  };
+
+  try {
+    await setDoc(doc(db, 'checklists', institutionKey), defaultTemplate);
+    console.log(`Default checklist template created for institution ${institutionKey}`);
+    return defaultTemplate;
+  } catch (error) {
+    console.error(`Error creating default checklist for institution ${institutionKey}:`, error);
     throw error;
   }
 };

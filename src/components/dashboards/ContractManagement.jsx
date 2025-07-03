@@ -15,6 +15,7 @@ import { db } from '../../firebase';
 export default function ContractManagement() {
   const { currentUser } = useAuth();
   const [interns, setInterns] = useState([]);
+  const [attachees, setAttachees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -27,6 +28,7 @@ export default function ContractManagement() {
 
   useEffect(() => {
     fetchInterns();
+    fetchAttachees();
   }, []);
 
   const fetchInterns = async () => {
@@ -74,6 +76,56 @@ export default function ContractManagement() {
     } catch (err) {
       console.error('Error fetching interns:', err);
       setError('Failed to load interns');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAttachees = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all attachees from users collection
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('role', '==', 'attachee')
+      );
+      const usersSnapshot = await getDocs(usersQuery);
+      
+      const attacheesList = [];
+      
+      // For each attachee, get their profile data including contract info
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        
+        // Get attachee profile data
+        const profileDoc = await getDoc(doc(db, 'attachee_profiles', userDoc.id));
+        let contractInfo = {
+          contractType: null,
+          contractStartDate: null,
+          contractEndDate: null
+        };
+        
+        if (profileDoc.exists()) {
+          const profileData = profileDoc.data();
+          contractInfo = {
+            contractType: profileData.contractType || null,
+            contractStartDate: profileData.contractStartDate || null,
+            contractEndDate: profileData.contractEndDate || null
+          };
+        }
+        
+        attacheesList.push({
+          id: userDoc.id,
+          ...userData,
+          ...contractInfo
+        });
+      }
+      
+      setAttachees(attacheesList);
+    } catch (err) {
+      console.error('Error fetching attachees:', err);
+      setError('Failed to load attachees');
     } finally {
       setLoading(false);
     }
