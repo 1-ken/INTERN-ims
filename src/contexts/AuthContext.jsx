@@ -23,16 +23,25 @@ export function AuthProvider({ children }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // Store additional user data in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
+      // Create base user data
+      const baseUserData = {
         uid: user.uid,
         email: user.email,
         role: userData.role,
         fullName: userData.fullName,
-        countyCode: userData.countyCode,
         department: userData.department,
         createdAt: serverTimestamp()
-      });
+      };
+
+      // Add role-specific data
+      if (userData.role === 'intern' && userData.countyCode) {
+        baseUserData.countyCode = userData.countyCode;
+      } else if (userData.role === 'attachee' && userData.institution) {
+        baseUserData.institution = userData.institution;
+      }
+
+      // Store user data in Firestore
+      await setDoc(doc(db, 'users', user.uid), baseUserData);
 
       return user;
     } catch (error) {

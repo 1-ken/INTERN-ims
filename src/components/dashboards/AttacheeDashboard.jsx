@@ -194,8 +194,8 @@ export default function AttacheeDashboard() {
                     <dd className="mt-1 text-sm text-gray-900">{userProfile?.department}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">County Code</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{userProfile?.countyCode}</dd>
+                    <dt className="text-sm font-medium text-gray-500">Institution</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{userProfile?.institution}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Assigned Mentor</dt>

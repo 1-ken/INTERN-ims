@@ -1,0 +1,22 @@
+export const KENYA_INSTITUTIONS = [
+  { id: 'uon', name: 'University of Nairobi' },
+  { id: 'ku', name: 'Kenyatta University' },
+  { id: 'jkuat', name: 'Jomo Kenyatta University of Agriculture and Technology' },
+  { id: 'mku', name: 'Mount Kenya University' },
+  { id: 'maseno', name: 'Maseno University' },
+  { id: 'egerton', name: 'Egerton University' },
+  { id: 'mmust', name: 'Masinde Muliro University of Science and Technology' },
+  { id: 'tuk', name: 'Technical University of Kenya' },
+  { id: 'dkut', name: 'Dedan Kimathi University of Technology' },
+  { id: 'seku', name: 'South Eastern Kenya University' },
+  { id: 'pwani', name: 'Pwani University' },
+  { id: 'karatina', name: 'Karatina University' },
+  { id: 'kemu', name: 'Kenya Methodist University' },
+  { id: 'usiu', name: 'United States International University Africa' },
+  { id: 'strathmore', name: 'Strathmore University' },
+  { id: 'daystar', name: 'Daystar University' },
+  { id: 'cuea', name: 'Catholic University of Eastern Africa' },
+  { id: 'anu', name: 'Africa Nazarene University' },
+  { id: 'pau', name: 'Pan Africa Christian University' },
+  { id: 'kiriri', name: 'Kiriri Womens University of Science and Technology' }
+];

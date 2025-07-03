@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { DEPARTMENTS, KENYA_COUNTIES } from '../../data/constants';
+import { KENYA_INSTITUTIONS } from '../../data/institutions';
 
 export default function SignupForm() {
   const [formData, setFormData] = useState({
@@ -11,6 +12,7 @@ export default function SignupForm() {
     fullName: '',
     role: 'intern',
     countyCode: '',
+    institution: '',
     department: ''
   });
   const [error, setError] = useState('');
@@ -38,12 +40,20 @@ export default function SignupForm() {
       setLoading(true);
       
       // Create user and store additional data
-      await signup(formData.email, formData.password, {
+      const userData = {
         fullName: formData.fullName,
         role: formData.role,
-        countyCode: parseInt(formData.countyCode),
         department: formData.department
-      });
+      };
+
+      // Add role-specific data
+      if (formData.role === 'intern' && formData.countyCode) {
+        userData.countyCode = parseInt(formData.countyCode);
+      } else if (formData.role === 'attachee' && formData.institution) {
+        userData.institution = formData.institution;
+      }
+
+      await signup(formData.email, formData.password, userData);
 
       // Redirect to appropriate dashboard
       navigate(`/${formData.role}-dashboard`);
@@ -145,26 +155,51 @@ export default function SignupForm() {
               </select>
             </div>
 
-            <div>
-              <label htmlFor="countyCode" className="block text-sm font-medium text-gray-700">
-                County
-              </label>
-              <select
-                id="countyCode"
-                name="countyCode"
-                required
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                value={formData.countyCode}
-                onChange={handleChange}
-              >
-                <option value="">Select a county</option>
-                {KENYA_COUNTIES.map((county) => (
-                  <option key={county.code} value={county.code}>
-                    {county.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {formData.role === 'intern' && (
+              <div>
+                <label htmlFor="countyCode" className="block text-sm font-medium text-gray-700">
+                  County
+                </label>
+                <select
+                  id="countyCode"
+                  name="countyCode"
+                  required={formData.role === 'intern'}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                  value={formData.countyCode}
+                  onChange={handleChange}
+                >
+                  <option value="">Select a county</option>
+                  {KENYA_COUNTIES.map((county) => (
+                    <option key={county.code} value={county.code}>
+                      {county.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {formData.role === 'attachee' && (
+              <div>
+                <label htmlFor="institution" className="block text-sm font-medium text-gray-700">
+                  Institution
+                </label>
+                <select
+                  id="institution"
+                  name="institution"
+                  required={formData.role === 'attachee'}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                  value={formData.institution}
+                  onChange={handleChange}
+                >
+                  <option value="">Select an institution</option>
+                  {KENYA_INSTITUTIONS.map((institution) => (
+                    <option key={institution.id} value={institution.id}>
+                      {institution.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">

@@ -3,7 +3,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { createDefaultChecklist } from '../../utils/initializeChecklists';
+import { createDefaultChecklist, createDefaultInstitutionChecklist } from '../../utils/initializeChecklists';
 
 export default function OnboardingChecklist() {
   const { currentUser } = useAuth();
@@ -15,6 +15,8 @@ export default function OnboardingChecklist() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [userRole, setUserRole] = useState('');
+  const [profileCollection, setProfileCollection] = useState('');
 
   const storage = getStorage();
 
@@ -26,41 +28,68 @@ export default function OnboardingChecklist() {
     if (!currentUser) return;
 
     try {
-      // Get user's county code
+      // Get user's data
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (!userDoc.exists()) {
         throw new Error('User document not found');
       }
 
-      const countyCode = userDoc.data().countyCode;
+      const userData = userDoc.data();
+      const role = userData.role;
+      let checklistKey, profileColl, profileUidField;
 
-      // Get checklist template for the county
-      let checklistDoc = await getDoc(doc(db, 'checklists', countyCode.toString()));
+      // Determine checklist key and profile collection based on role
+      if (role === 'intern') {
+        checklistKey = userData.countyCode?.toString();
+        profileColl = 'intern_profiles';
+        profileUidField = 'internUid';
+        
+        if (!checklistKey) {
+          throw new Error('No county assigned to intern');
+        }
+      } else if (role === 'attachee') {
+        checklistKey = 'attachee'; // Uniform checklist for all attachees
+        profileColl = 'attachee_profiles';
+        profileUidField = 'attacheeUid';
+      } else {
+        throw new Error('Invalid user role for onboarding checklist');
+      }
+
+      setUserRole(role);
+      setProfileCollection(profileColl);
+
+      // Get checklist template
+      let checklistDoc = await getDoc(doc(db, 'checklists', checklistKey));
       let checklistData;
       
       if (!checklistDoc.exists()) {
-        console.log(`No checklist found for county ${countyCode}, creating default...`);
-        checklistData = await createDefaultChecklist(countyCode);
+        console.log(`No checklist found for ${checklistKey}, creating default...`);
+        if (role === 'intern') {
+          checklistData = await createDefaultChecklist(checklistKey);
+        } else {
+          checklistData = await createDefaultInstitutionChecklist(checklistKey);
+        }
       } else {
         checklistData = checklistDoc.data();
       }
 
-      // Get intern's progress and form data
-      const internProfileDoc = await getDoc(doc(db, 'intern_profiles', currentUser.uid));
+      // Get user's progress and form data
+      const profileDoc = await getDoc(doc(db, profileColl, currentUser.uid));
       let checklistProgress = [];
       
-      if (internProfileDoc.exists()) {
-        const profileData = internProfileDoc.data();
+      if (profileDoc.exists()) {
+        const profileData = profileDoc.data();
         checklistProgress = profileData.checklistProgress || [];
         setFormData(profileData.formData || {});
       } else {
-        await setDoc(doc(db, 'intern_profiles', currentUser.uid), {
-          internUid: currentUser.uid,
+        const newProfile = {
+          [profileUidField]: currentUser.uid,
           checklistProgress: [],
           formData: {},
           documents: {},
           createdAt: new Date()
-        });
+        };
+        await setDoc(doc(db, profileColl, currentUser.uid), newProfile);
       }
 
       setChecklist(checklistData.items || []);
@@ -80,18 +109,18 @@ export default function OnboardingChecklist() {
 
   const handleInputChange = async (item, value) => {
     try {
-      const internProfileRef = doc(db, 'intern_profiles', currentUser.uid);
+      const profileRef = doc(db, profileCollection, currentUser.uid);
       const updatedFormData = {
         ...formData,
         [item.name]: value
       };
 
-      await updateDoc(internProfileRef, {
+      await updateDoc(profileRef, {
         [`formData.${item.name}`]: value
       });
 
       if (value && !completedItems.includes(item.name)) {
-        await updateDoc(internProfileRef, {
+        await updateDoc(profileRef, {
           checklistProgress: arrayUnion(item.name)
         });
         const newCompletedItems = [...completedItems, item.name];
@@ -119,9 +148,9 @@ export default function OnboardingChecklist() {
       await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(storageRef);
       
-      // Update intern profile
-      const internProfileRef = doc(db, 'intern_profiles', currentUser.uid);
-      await updateDoc(internProfileRef, {
+      // Update profile
+      const profileRef = doc(db, profileCollection, currentUser.uid);
+      await updateDoc(profileRef, {
         [`documents.${item.name}`]: downloadURL,
         checklistProgress: arrayUnion(item.name)
       });
@@ -315,7 +344,9 @@ export default function OnboardingChecklist() {
 
       {checklist.length === 0 && (
         <div className="text-center py-8">
-          <p className="text-gray-500">No onboarding requirements found for your county.</p>
+          <p className="text-gray-500">
+            No onboarding requirements found for your {userRole === 'intern' ? 'county' : 'institution'}.
+          </p>
         </div>
       )}
     </div>
