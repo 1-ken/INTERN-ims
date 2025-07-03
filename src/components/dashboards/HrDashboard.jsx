@@ -6,6 +6,7 @@ import MentorAssignment from './MentorAssignment';
 import HrTimesheetApproval from './HrTimesheetApproval';
 import ChecklistManagement from './ChecklistManagement';
 import { KENYA_INSTITUTIONS } from '../../data/institutions';
+import { KENYA_COUNTIES } from '../../data/constants';
 import moment from 'moment';
 
 export default function HrDashboard() {
@@ -314,9 +315,9 @@ export default function HrDashboard() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Department
                         </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Institution
-                          </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          County
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Contract
                         </th>
@@ -360,9 +361,7 @@ export default function HrDashboard() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {intern.role === 'attachee' 
-                                ? (KENYA_INSTITUTIONS.find(inst => inst.id === intern.institution)?.name || 'Unknown Institution') 
-                                : intern.countyCode}
+                              {KENYA_COUNTIES.find(county => county.code === intern.countyCode)?.name || 'Unknown County'}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
