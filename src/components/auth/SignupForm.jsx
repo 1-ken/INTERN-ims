@@ -117,6 +117,7 @@ export default function SignupForm() {
                 onChange={handleChange}
               >
                 <option value="intern">Intern</option>
+                <option value="attachee">Attachee</option>
                 <option value="hr">HR</option>
                 <option value="mentor">Mentor</option>
                 <option value="county_liaison">County Liaison</option>
