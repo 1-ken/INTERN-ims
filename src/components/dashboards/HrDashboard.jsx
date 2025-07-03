@@ -528,28 +528,46 @@ export default function HrDashboard() {
         </div>
       </main>
 
-      {/* Intern Details Modal */}
+      {/* Person Details Modal */}
       {selectedIntern && (
         <div className="fixed z-50 inset-0 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div 
+              className="fixed inset-0 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setSelectedIntern(null)}
+            >
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div 
+              className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                     <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Intern Details
+                      {selectedIntern.role === 'attachee' ? 'Attachee' : 'Intern'} Details
                     </h3>
                     <div className="mt-2 space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                        <p className="mt-1 text-sm text-gray-900">{selectedIntern.fullName || 'Unnamed Intern'}</p>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedIntern.fullName || `Unnamed ${selectedIntern.role === 'attachee' ? 'Attachee' : 'Intern'}`}
+                          {selectedIntern.role === 'attachee' && (
+                            <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                              Attachee
+                            </span>
+                          )}
+                        </p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Email</label>
                         <p className="mt-1 text-sm text-gray-900">{selectedIntern.email || 'No email provided'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Role</label>
+                        <p className="mt-1 text-sm text-gray-900 capitalize">{selectedIntern.role || 'No role assigned'}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Department</label>
