@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import MentorAssignment from './MentorAssignment';
 import HrTimesheetApproval from './HrTimesheetApproval';
 import ChecklistManagement from './ChecklistManagement';
+import { KENYA_INSTITUTIONS } from '../../data/institutions';
 import moment from 'moment';
 
 export default function HrDashboard() {
@@ -286,7 +287,7 @@ export default function HrDashboard() {
                   Interns List
                 </h3>
                 <span className="text-sm text-gray-500">
-                  Showing {filteredInterns.length} of {interns.length} interns
+                  Showing {filteredInterns.length} of {interns.length + attachees.length} people
                 </span>
               </div>
               <div className="border-t border-gray-200">
@@ -308,14 +309,14 @@ export default function HrDashboard() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Intern
+                          Name
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Department
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          County Code
-                        </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Institution
+                          </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Contract
                         </th>
@@ -341,7 +342,12 @@ export default function HrDashboard() {
                               </div>
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">
-                                  {intern.fullName || 'Unnamed Intern'}
+                                  {intern.fullName || `Unnamed ${intern.role === 'attachee' ? 'Attachee' : 'Intern'}`}
+                                  {intern.role === 'attachee' && (
+                                    <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                      Attachee
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-sm text-gray-500">
                                   {intern.email || 'No email provided'}
@@ -353,7 +359,11 @@ export default function HrDashboard() {
                             <div className="text-sm text-gray-900">{intern.department}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{intern.countyCode}</div>
+                            <div className="text-sm text-gray-900">
+                              {intern.role === 'attachee' 
+                                ? (KENYA_INSTITUTIONS.find(inst => inst.id === intern.institution)?.name || 'Unknown Institution') 
+                                : intern.countyCode}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
@@ -436,7 +446,7 @@ export default function HrDashboard() {
                           Department
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          County Code
+                          Institution
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Contract
@@ -478,7 +488,9 @@ export default function HrDashboard() {
                             <div className="text-sm text-gray-900">{attachee.department}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{attachee.countyCode}</div>
+                            <div className="text-sm text-gray-900">
+                              {KENYA_INSTITUTIONS.find(inst => inst.id === attachee.institution)?.name || 'Unknown Institution'}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
