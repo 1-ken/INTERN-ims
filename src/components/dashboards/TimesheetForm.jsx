@@ -50,7 +50,7 @@ const TimesheetForm = () => {
     try {
       const q = query(
         collection(db, 'timesheets'),
-        where('internUid', '==', currentUser.uid),
+        where('submitterUid', '==', currentUser.uid),
         orderBy('submittedAt', 'desc')
       );
       
@@ -192,29 +192,30 @@ const TimesheetForm = () => {
       // Get mentor UID from user data or default
       const mentorUid = userData?.mentorUid || 'unassigned';
 
-      const timesheetData = {
-        internUid: currentUser.uid,
-        mentorUid: mentorUid,
-        week: formData.week,
-        dailyHours: {
-          monday: parseFloat(formData.monday) || 0,
-          tuesday: parseFloat(formData.tuesday) || 0,
-          wednesday: parseFloat(formData.wednesday) || 0,
-          thursday: parseFloat(formData.thursday) || 0,
-          friday: parseFloat(formData.friday) || 0
-        },
-        dailyDescriptions: {
-          monday: formData.mondayDescription || '',
-          tuesday: formData.tuesdayDescription || '',
-          wednesday: formData.wednesdayDescription || '',
-          thursday: formData.thursdayDescription || '',
-          friday: formData.fridayDescription || ''
-        },
-        totalHours: getTotalHours(),
-        status: 'pending',
-        submittedAt: new Date(),
-        internName: userData?.fullName || 'Unknown',
-        department: userData?.department || 'Unknown'
+  const timesheetData = {
+    submitterUid: currentUser.uid,
+    submitterRole: userData?.role || 'intern',
+    mentorUid: mentorUid,
+    week: formData.week,
+    dailyHours: {
+      monday: parseFloat(formData.monday) || 0,
+      tuesday: parseFloat(formData.tuesday) || 0,
+      wednesday: parseFloat(formData.wednesday) || 0,
+      thursday: parseFloat(formData.thursday) || 0,
+      friday: parseFloat(formData.friday) || 0
+    },
+    dailyDescriptions: {
+      monday: formData.mondayDescription || '',
+      tuesday: formData.tuesdayDescription || '',
+      wednesday: formData.wednesdayDescription || '',
+      thursday: formData.thursdayDescription || '',
+      friday: formData.fridayDescription || ''
+    },
+    totalHours: getTotalHours(),
+    status: 'pending',
+    submittedAt: new Date(),
+    submitterName: userData?.fullName || 'Unknown',
+    department: userData?.department || 'Unknown'
       };
 
       await addDoc(collection(db, 'timesheets'), timesheetData);
@@ -251,9 +252,9 @@ const TimesheetForm = () => {
     <div className="space-y-6">
       {/* Timesheet Submission Form */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Submit Weekly Timesheet
-        </h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Submit Weekly Timesheet - {userData?.role === 'attachee' ? 'Attachee' : 'Intern'}
+          </h3>
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
