@@ -7,33 +7,57 @@ import MentorApproval from './MentorApproval';
 export default function MentorDashboard() {
   const { currentUser, logout } = useAuth();
   const [userProfile, setUserProfile] = useState(null);
-  const [assignedInterns, setAssignedInterns] = useState([]);
+  const [assignedMentees, setAssignedMentees] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       if (currentUser) {
-        // Fetch mentor profile
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data());
-          
-          // Fetch interns in the same department
-          const internsQuery = query(
-            collection(db, 'users'),
-            where('role', '==', 'intern'),
-            where('department', '==', userDoc.data().department)
-          );
-          
-          const internsSnapshot = await getDocs(internsQuery);
-          const internsList = [];
-          internsSnapshot.forEach((doc) => {
-            internsList.push({ id: doc.id, ...doc.data() });
-          });
-          setAssignedInterns(internsList);
+        try {
+          // Fetch mentor profile
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            setUserProfile(userDoc.data());
+            
+            // Fetch intern profiles assigned to this mentor
+            const internProfilesQuery = query(
+              collection(db, 'intern_profiles'),
+              where('mentorUid', '==', currentUser.uid)
+            );
+            const internProfilesSnapshot = await getDocs(internProfilesQuery);
+            
+            // Fetch attachee profiles assigned to this mentor
+            const attacheeProfilesQuery = query(
+              collection(db, 'attachee_profiles'),
+              where('mentorUid', '==', currentUser.uid)
+            );
+            const attacheeProfilesSnapshot = await getDocs(attacheeProfilesQuery);
+            
+            // Combine all profile IDs
+            const internUids = internProfilesSnapshot.docs.map(doc => doc.data().internUid);
+            const attacheeUids = attacheeProfilesSnapshot.docs.map(doc => doc.data().attacheeUid);
+            const allUids = [...internUids, ...attacheeUids];
+            
+            // Fetch user details for all mentees
+            const menteesList = [];
+            for (const uid of allUids) {
+              const userDoc = await getDoc(doc(db, 'users', uid));
+              if (userDoc.exists()) {
+                menteesList.push({
+                  id: userDoc.id,
+                  ...userDoc.data(),
+                  type: userDoc.data().role // 'intern' or 'attachee'
+                });
+              }
+            }
+            
+            setAssignedMentees(menteesList);
+          }
+        } catch (error) {
+          console.error('Error fetching mentor data:', error);
         }
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     fetchData();
@@ -117,10 +141,10 @@ export default function MentorDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">
-                        Assigned Interns
+                        Assigned Mentees
                       </dt>
                       <dd className="text-lg font-medium text-gray-900">
-                        {assignedInterns.length}
+                      {assignedMentees.length}
                       </dd>
                     </dl>
                   </div>
@@ -134,35 +158,40 @@ export default function MentorDashboard() {
             <MentorApproval />
           </div>
 
-          {/* Assigned Interns */}
+          {/* Assigned Mentees */}
           <div className="bg-white shadow overflow-hidden sm:rounded-lg">
             <div className="px-4 py-5 sm:px-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Assigned Interns
+                Assigned Mentees
               </h3>
               <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Interns in your department
+                Interns and Attachees assigned to you
               </p>
             </div>
             <div className="border-t border-gray-200">
               <ul className="divide-y divide-gray-200">
-                {assignedInterns.map((intern) => (
-                  <li key={intern.id} className="px-4 py-4 sm:px-6">
+                {assignedMentees.map((mentee) => (
+                  <li key={mentee.id} className="px-4 py-4 sm:px-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <div className="flex-shrink-0">
                           <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
                             <span className="text-gray-500 font-medium">
-                              {intern.fullName.charAt(0)}
+                              {mentee.fullName.charAt(0)}
                             </span>
                           </div>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-indigo-600">
-                            {intern.fullName}
+                          <div className="flex items-center">
+                            <div className="text-sm font-medium text-indigo-600">
+                              {mentee.fullName}
+                            </div>
+                            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-800 capitalize">
+                              {mentee.type}
+                            </span>
                           </div>
                           <div className="text-sm text-gray-500">
-                            {intern.email}
+                            {mentee.email}
                           </div>
                         </div>
                       </div>
