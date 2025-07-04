@@ -29,11 +29,22 @@ export default function HrTimesheetApproval() {
           where('status', '==', 'approved'),
           orderBy('submittedAt', 'desc')
         );
-      } else {
-        // For pending, show both pending and mentor-approved timesheets
+      } else if (filter === 'rejected') {
         q = query(
           collection(db, 'timesheets'),
-          where('status', 'in', ['pending', 'mentor-approved']),
+          where('status', '==', 'rejected'),
+          orderBy('submittedAt', 'desc')
+        );
+      } else if (filter === 'all') {
+        q = query(
+          collection(db, 'timesheets'),
+          orderBy('submittedAt', 'desc')
+        );
+      } else {
+        // For pending, show only pending timesheets
+        q = query(
+          collection(db, 'timesheets'),
+          where('status', '==', 'pending'),
           orderBy('submittedAt', 'desc')
         );
       }
@@ -94,7 +105,7 @@ export default function HrTimesheetApproval() {
         [timesheetId]: ''
       }));
 
-      setSuccess(`Timesheet ${approved ? 'fully approved' : 'rejected'} successfully by HR`);
+      setSuccess(`Timesheet ${approved ? 'approved' : 'rejected'} successfully by HR`);
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
@@ -107,7 +118,6 @@ export default function HrTimesheetApproval() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'approved': return 'text-green-600 bg-green-100';
-      case 'mentor-approved': return 'text-blue-600 bg-blue-100';
       case 'rejected': return 'text-red-600 bg-red-100';
       case 'pending': return 'text-yellow-600 bg-yellow-100';
       default: return 'text-gray-600 bg-gray-100';
@@ -116,8 +126,7 @@ export default function HrTimesheetApproval() {
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'approved': return 'Fully Approved';
-      case 'mentor-approved': return 'Mentor Approved';
+      case 'approved': return 'Approved';
       case 'rejected': return 'Rejected';
       case 'pending': return 'Pending';
       default: return status;
@@ -148,6 +157,8 @@ export default function HrTimesheetApproval() {
           >
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="all">All</option>
           </select>
         </div>
       </div>
@@ -166,7 +177,7 @@ export default function HrTimesheetApproval() {
 
       {timesheets.length === 0 ? (
         <p className="text-gray-500 text-center py-4">
-          No {filter === 'approved' ? 'approved' : 'pending'} timesheets found
+          No {filter === 'all' ? '' : filter} timesheets found
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -174,10 +185,10 @@ export default function HrTimesheetApproval() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Intern Name
+                  Mentee Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Week
+                  Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Activities
@@ -199,16 +210,37 @@ export default function HrTimesheetApproval() {
                   <tr key={timesheet.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       <div>
-                        <div>{timesheet.internName}</div>
-                        <div className="text-xs text-gray-500">{timesheet.department}</div>
+                        <div>{timesheet.internName || timesheet.submitterName}</div>
+                        <div className="text-xs text-gray-500">
+                          {timesheet.department} • {timesheet.submitterRole === 'attachee' ? 'Attachee' : 'Intern'}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {timesheet.week}
+                      <div>
+                        {timesheet.date ? (
+                          <div>
+                            <div className="font-medium">{new Date(timesheet.date).toLocaleDateString('en-US', { 
+                              weekday: 'short', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}</div>
+                            <div className="text-xs text-gray-400 capitalize">{timesheet.dayOfWeek || 'Unknown'}</div>
+                          </div>
+                        ) : (
+                          <div className="font-medium">{timesheet.week}</div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="max-w-xs">
-                        {timesheet.dailyDescriptions && (
+                        {timesheet.description ? (
+                          <div className="text-xs">
+                            <div className="text-gray-500 truncate">
+                              {timesheet.description.substring(0, 80)}{timesheet.description.length > 80 ? '...' : ''}
+                            </div>
+                          </div>
+                        ) : timesheet.dailyDescriptions ? (
                           <div className="space-y-1">
                             {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map((day) => {
                               const description = timesheet.dailyDescriptions?.[day] || '';
@@ -227,8 +259,7 @@ export default function HrTimesheetApproval() {
                               return null;
                             })}
                           </div>
-                        )}
-                        {!timesheet.dailyDescriptions && (
+                        ) : (
                           <div className="text-xs text-gray-400">
                             No activities recorded
                           </div>
@@ -240,14 +271,9 @@ export default function HrTimesheetApproval() {
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(timesheet.status)}`}>
                           {getStatusText(timesheet.status)}
                         </span>
-                        {timesheet.status === 'mentor-approved' && (
-                          <div className="text-xs text-blue-600">
-                            Previously approved by Mentor
-                          </div>
-                        )}
                         {timesheet.status === 'approved' && (
                           <div className="text-xs text-green-600">
-                            Fully Approved
+                            Approved by {timesheet.hrApprovedBy ? 'HR' : 'Mentor'}
                           </div>
                         )}
                         {timesheet.status === 'rejected' && (
@@ -261,7 +287,7 @@ export default function HrTimesheetApproval() {
                       {timesheet.submittedAt?.toLocaleDateString() || 'Unknown'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {(timesheet.status === 'pending' || timesheet.status === 'mentor-approved') ? (
+                      {timesheet.status === 'pending' ? (
                         <div className="space-y-2">
                           <textarea
                             placeholder="Add feedback (optional)"
@@ -297,8 +323,19 @@ export default function HrTimesheetApproval() {
                     <td colSpan="6" className="px-6 py-4 bg-gray-50">
                       <div className="space-y-3">
                         <div>
-                          <h4 className="font-medium text-gray-900 text-sm mb-2">Daily Activities:</h4>
-                          {timesheet.dailyDescriptions && (
+                          <h4 className="font-medium text-gray-900 text-sm mb-2">
+                            Activities for {timesheet.date ? new Date(timesheet.date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            }) : `Week ${timesheet.week}`}:
+                          </h4>
+                          {timesheet.description ? (
+                            <div className="text-sm text-gray-600 whitespace-pre-line">
+                              {timesheet.description}
+                            </div>
+                          ) : timesheet.dailyDescriptions ? (
                             <div className="space-y-2">
                               {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map((day) => {
                                 const description = timesheet.dailyDescriptions?.[day];
@@ -317,6 +354,8 @@ export default function HrTimesheetApproval() {
                                 return null;
                               })}
                             </div>
+                          ) : (
+                            <div className="text-sm text-gray-400">No activities recorded</div>
                           )}
                         </div>
                         {timesheet.mentorFeedback && (

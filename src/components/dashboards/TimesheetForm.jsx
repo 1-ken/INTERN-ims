@@ -105,12 +105,11 @@ const TimesheetForm = () => {
         submittedAt: doc.data().submittedAt?.toDate?.()
       }));
       
-      // Sort timesheets by status priority: pending -> mentor-approved -> approved -> rejected
+      // Sort timesheets by status priority: pending -> approved -> rejected
       const statusPriority = {
         'pending': 0,
-        'mentor-approved': 1,
-        'approved': 2,
-        'rejected': 3
+        'approved': 1,
+        'rejected': 2
       };
 
       timesheets.sort((a, b) => {
@@ -129,7 +128,6 @@ const TimesheetForm = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'approved': return 'text-green-600 bg-green-100';
-      case 'mentor-approved': return 'text-blue-600 bg-blue-100';
       case 'rejected': return 'text-red-600 bg-red-100';
       case 'pending': return 'text-yellow-600 bg-yellow-100';
       default: return 'text-gray-600 bg-gray-100';
@@ -138,8 +136,7 @@ const TimesheetForm = () => {
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'approved': return 'Fully Approved';
-      case 'mentor-approved': return 'Mentor Approved';
+      case 'approved': return 'Approved';
       case 'rejected': return 'Rejected';
       case 'pending': return 'Pending';
       default: return status;
@@ -388,14 +385,9 @@ const TimesheetForm = () => {
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(timesheet.status)}`}>
                             {getStatusText(timesheet.status)}
                           </span>
-                          {timesheet.status === 'mentor-approved' && (
-                            <div className="text-xs text-blue-600">
-                              Pending HR Review
-                            </div>
-                          )}
                           {timesheet.status === 'approved' && (
                             <div className="text-xs text-green-600">
-                              Fully Approved
+                              Approved
                             </div>
                           )}
                           {timesheet.status === 'rejected' && (
@@ -408,15 +400,9 @@ const TimesheetForm = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {timesheet.status === 'approved' && (
                           <div className="text-xs">
-                            <div className="text-green-600 font-medium">Approved by HR</div>
-                            {timesheet.mentorApprovedBy && (
-                              <div className="text-blue-600">Previously approved by Mentor</div>
-                            )}
-                          </div>
-                        )}
-                        {timesheet.status === 'mentor-approved' && (
-                          <div className="text-xs text-blue-600 font-medium">
-                            Approved by Mentor
+                            <div className="text-green-600 font-medium">
+                              Approved by {timesheet.hrApprovedBy ? 'HR' : 'Mentor'}
+                            </div>
                           </div>
                         )}
                         {timesheet.status === 'rejected' && (

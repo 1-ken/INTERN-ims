@@ -67,7 +67,7 @@ export default function MentorApproval() {
       const timesheetRef = doc(db, 'timesheets', timesheetId);
       
       const updateData = {
-        status: approved ? 'mentor-approved' : 'rejected',
+        status: approved ? 'approved' : 'rejected',
         mentorApprovedAt: approved ? new Date() : null,
         mentorApprovedBy: currentUser.uid,
         mentorFeedback: feedback || null,
@@ -83,7 +83,7 @@ export default function MentorApproval() {
         t.id === timesheetId 
           ? { 
               ...t, 
-              status: approved ? 'mentor-approved' : 'rejected',
+              status: approved ? 'approved' : 'rejected',
               mentorApprovedAt: approved ? new Date() : null,
               mentorApprovedBy: currentUser.uid,
               mentorFeedback: feedback || null,
@@ -100,7 +100,7 @@ export default function MentorApproval() {
         [timesheetId]: ''
       }));
 
-      setSuccess(`Timesheet ${approved ? 'approved by mentor - pending HR approval' : 'rejected'} successfully`);
+      setSuccess(`Timesheet ${approved ? 'approved by mentor' : 'rejected'} successfully`);
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
@@ -113,7 +113,6 @@ export default function MentorApproval() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'approved': return 'text-green-600 bg-green-100';
-      case 'mentor-approved': return 'text-blue-600 bg-blue-100';
       case 'rejected': return 'text-red-600 bg-red-100';
       case 'pending': return 'text-yellow-600 bg-yellow-100';
       default: return 'text-gray-600 bg-gray-100';
@@ -122,8 +121,7 @@ export default function MentorApproval() {
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'approved': return 'Fully Approved';
-      case 'mentor-approved': return 'Mentor Approved';
+      case 'approved': return 'Approved';
       case 'rejected': return 'Rejected';
       case 'pending': return 'Pending';
       default: return status;
@@ -153,8 +151,7 @@ export default function MentorApproval() {
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           >
             <option value="pending">Pending</option>
-            <option value="mentor-approved">Mentor Approved</option>
-            <option value="approved">Fully Approved</option>
+            <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
             <option value="all">All</option>
           </select>
@@ -269,14 +266,9 @@ export default function MentorApproval() {
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(timesheet.status)}`}>
                           {getStatusText(timesheet.status)}
                         </span>
-                        {timesheet.status === 'mentor-approved' && (
-                          <div className="text-xs text-blue-600">
-                            Pending HR Approval
-                          </div>
-                        )}
                         {timesheet.status === 'approved' && (
                           <div className="text-xs text-green-600">
-                            Approved by HR
+                            Approved by {timesheet.mentorApprovedBy ? 'Mentor' : 'HR'}
                           </div>
                         )}
                         {timesheet.status === 'rejected' && (
@@ -316,8 +308,7 @@ export default function MentorApproval() {
                         </div>
                       ) : (
                         <span className="text-gray-400 text-sm">
-                          {timesheet.status === 'approved' ? 'Fully Approved' : 
-                           timesheet.status === 'mentor-approved' ? 'Pending HR' : 'Rejected'}
+                          {timesheet.status === 'approved' ? 'Approved' : 'Rejected'}
                         </span>
                       )}
                     </td>
