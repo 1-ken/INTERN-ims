@@ -3,10 +3,12 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithPopup
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth, db, googleProvider } from '../firebase';
 
 const AuthContext = createContext();
 
@@ -76,12 +78,67 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
+  async function resetPassword(email) {
+    return sendPasswordResetEmail(auth, email);
+  }
+
+  async function signInWithGoogle() {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      // Check if user already exists in Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      
+      if (!userDoc.exists()) {
+        // If new Google user, they need to complete profile setup
+        // Return false to indicate profile setup needed
+        return { needsProfileSetup: true, user };
+      }
+      
+      return { needsProfileSetup: false, user };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async function completeGoogleSignup(user, userData) {
+    try {
+      // Create base user data
+      const baseUserData = {
+        uid: user.uid,
+        email: user.email,
+        role: userData.role,
+        fullName: userData.fullName || user.displayName,
+        department: userData.department,
+        createdAt: serverTimestamp()
+      };
+
+      // Add role-specific data
+      if (userData.role === 'intern' && userData.countyCode) {
+        baseUserData.countyCode = userData.countyCode;
+      } else if (userData.role === 'attachee' && userData.institution) {
+        baseUserData.institution = userData.institution;
+      }
+
+      // Store user data in Firestore
+      await setDoc(doc(db, 'users', user.uid), baseUserData);
+
+      return user;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   const value = {
     currentUser,
     signup,
     login,
     logout,
-    getUserRole
+    getUserRole,
+    resetPassword,
+    signInWithGoogle,
+    completeGoogleSignup
   };
 
   return (
