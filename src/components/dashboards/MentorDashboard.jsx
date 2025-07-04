@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -9,6 +9,12 @@ export default function MentorDashboard() {
   const [userProfile, setUserProfile] = useState(null);
   const [assignedMentees, setAssignedMentees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState('overview');
+  
+  // Refs for scrolling to sections
+  const overviewRef = useRef(null);
+  const timesheetsRef = useRef(null);
+  const menteesRef = useRef(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -71,6 +77,14 @@ export default function MentorDashboard() {
     }
   };
 
+  const scrollToSection = (sectionRef, sectionName) => {
+    setActiveSection(sectionName);
+    sectionRef.current?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'start'
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -82,7 +96,7 @@ export default function MentorDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="bg-white shadow sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
@@ -98,14 +112,52 @@ export default function MentorDashboard() {
               </button>
             </div>
           </div>
+          
+          {/* Navigation Menu */}
+          <div className="border-t border-gray-200">
+            <nav className="flex space-x-8 py-4">
+              <button
+                onClick={() => scrollToSection(overviewRef, 'overview')}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeSection === 'overview'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                📊 Overview
+              </button>
+              <button
+                onClick={() => scrollToSection(timesheetsRef, 'timesheets')}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeSection === 'timesheets'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                📋 Timesheet Approvals
+              </button>
+              <button
+                onClick={() => scrollToSection(menteesRef, 'mentees')}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeSection === 'mentees'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                👥 Assigned Mentees ({assignedMentees.length})
+              </button>
+            </nav>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          {/* Mentor Info */}
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+          {/* Overview Section */}
+          <div ref={overviewRef} className="scroll-mt-32">
+            {/* Mentor Info */}
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
             <div className="px-4 py-5 sm:px-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 Mentor Information
@@ -128,38 +180,66 @@ export default function MentorDashboard() {
             </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-indigo-500 rounded-md flex items-center justify-center">
-                      <span className="text-white text-sm font-medium">A</span>
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-indigo-500 rounded-md flex items-center justify-center">
+                        <span className="text-white text-sm font-medium">👥</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">
+                          Assigned Mentees
+                        </dt>
+                        <dd className="text-lg font-medium text-gray-900">
+                        {assignedMentees.length}
+                        </dd>
+                      </dl>
                     </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        Assigned Mentees
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                      {assignedMentees.length}
-                      </dd>
-                    </dl>
+                </div>
+              </div>
+              
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                        <span className="text-white text-sm font-medium">📋</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">
+                          Quick Actions
+                        </dt>
+                        <dd className="text-sm text-gray-900">
+                          <button 
+                            onClick={() => scrollToSection(timesheetsRef, 'timesheets')}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            Review Timesheets
+                          </button>
+                        </dd>
+                      </dl>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Timesheet Approvals */}
-          <div className="mb-6">
+          {/* Timesheet Approvals Section */}
+          <div ref={timesheetsRef} className="mb-6 scroll-mt-32">
             <MentorApproval />
           </div>
 
-          {/* Assigned Mentees */}
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+          {/* Assigned Mentees Section */}
+          <div ref={menteesRef} className="bg-white shadow overflow-hidden sm:rounded-lg scroll-mt-32">
             <div className="px-4 py-5 sm:px-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 Assigned Mentees
