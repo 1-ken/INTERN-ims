@@ -10,6 +10,7 @@ export default function HrTimesheetApproval() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [filter, setFilter] = useState('pending');
+  const [feedbackInputs, setFeedbackInputs] = useState({});
 
   useEffect(() => {
     loadTimesheets();
@@ -22,15 +23,17 @@ export default function HrTimesheetApproval() {
       setLoading(true);
       let q;
       
-      if (filter === 'all') {
+      if (filter === 'approved') {
         q = query(
           collection(db, 'timesheets'),
+          where('status', '==', 'approved'),
           orderBy('submittedAt', 'desc')
         );
       } else {
+        // For pending, show both pending and mentor-approved timesheets
         q = query(
           collection(db, 'timesheets'),
-          where('status', '==', filter),
+          where('status', 'in', ['pending', 'mentor-approved']),
           orderBy('submittedAt', 'desc')
         );
       }
@@ -51,32 +54,47 @@ export default function HrTimesheetApproval() {
     }
   };
 
-  const handleApproval = async (timesheetId, approved, reason = '') => {
+  const handleFeedbackChange = (timesheetId, feedback) => {
+    setFeedbackInputs(prev => ({
+      ...prev,
+      [timesheetId]: feedback
+    }));
+  };
+
+  const handleApproval = async (timesheetId, approved, timesheet) => {
     try {
+      const feedback = feedbackInputs[timesheetId] || '';
       const timesheetRef = doc(db, 'timesheets', timesheetId);
-      await updateDoc(timesheetRef, {
+      
+      const updateData = {
         status: approved ? 'approved' : 'rejected',
-        approvedAt: approved ? new Date() : null,
-        approvedBy: currentUser.uid,
-        approvedByRole: 'hr',
-        rejectionReason: approved ? null : reason
-      });
+        hrApprovedAt: approved ? new Date() : null,
+        hrApprovedBy: currentUser.uid,
+        hrFeedback: feedback || null,
+        rejectedAt: !approved ? new Date() : null,
+        rejectedBy: !approved ? currentUser.uid : null,
+        rejectedByRole: !approved ? 'hr' : null
+      };
+
+      await updateDoc(timesheetRef, updateData);
 
       // Update local state
       setTimesheets(prev => prev.map(t => 
         t.id === timesheetId 
           ? { 
               ...t, 
-              status: approved ? 'approved' : 'rejected',
-              approvedAt: approved ? new Date() : null,
-              approvedBy: currentUser.uid,
-              approvedByRole: 'hr',
-              rejectionReason: approved ? null : reason
+              ...updateData
             }
           : t
       ));
 
-      setSuccess(`Timesheet ${approved ? 'approved' : 'rejected'} successfully by HR`);
+      // Clear feedback input
+      setFeedbackInputs(prev => ({
+        ...prev,
+        [timesheetId]: ''
+      }));
+
+      setSuccess(`Timesheet ${approved ? 'fully approved' : 'rejected'} successfully by HR`);
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
@@ -89,9 +107,20 @@ export default function HrTimesheetApproval() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'approved': return 'text-green-600 bg-green-100';
+      case 'mentor-approved': return 'text-blue-600 bg-blue-100';
       case 'rejected': return 'text-red-600 bg-red-100';
       case 'pending': return 'text-yellow-600 bg-yellow-100';
       default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'approved': return 'Fully Approved';
+      case 'mentor-approved': return 'Mentor Approved';
+      case 'rejected': return 'Rejected';
+      case 'pending': return 'Pending';
+      default: return status;
     }
   };
 
@@ -119,8 +148,6 @@ export default function HrTimesheetApproval() {
           >
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="all">All</option>
           </select>
         </div>
       </div>
@@ -139,7 +166,7 @@ export default function HrTimesheetApproval() {
 
       {timesheets.length === 0 ? (
         <p className="text-gray-500 text-center py-4">
-          No {filter === 'all' ? '' : filter} timesheets found
+          No {filter === 'approved' ? 'approved' : 'pending'} timesheets found
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -153,7 +180,7 @@ export default function HrTimesheetApproval() {
                   Week
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hours & Activities
+                  Activities
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -168,90 +195,146 @@ export default function HrTimesheetApproval() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {timesheets.map((timesheet) => (
-                <tr key={timesheet.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    <div>
-                      <div>{timesheet.internName}</div>
-                      <div className="text-xs text-gray-500">{timesheet.department}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {timesheet.week}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    <div className="font-medium">
-                      {timesheet.totalHours || timesheet.hoursWorked} hours total
-                    </div>
-                    {timesheet.dailyHours && (
-                      <div className="mt-2 space-y-1">
-                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map((day) => {
-                          const hours = timesheet.dailyHours[day] || 0;
-                          const description = timesheet.dailyDescriptions?.[day] || '';
-                          if (hours > 0 || description) {
-                            return (
-                              <div key={day} className="text-xs">
-                                <span className="font-medium text-gray-700 capitalize">
-                                  {day}: {hours}h
-                                </span>
-                                {description && (
-                                  <div className="text-gray-500 ml-2 italic truncate">
-                                    "{description.substring(0, 50)}{description.length > 50 ? '...' : ''}"
+                <>
+                  <tr key={timesheet.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <div>
+                        <div>{timesheet.internName}</div>
+                        <div className="text-xs text-gray-500">{timesheet.department}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {timesheet.week}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div className="max-w-xs">
+                        {timesheet.dailyDescriptions && (
+                          <div className="space-y-1">
+                            {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map((day) => {
+                              const description = timesheet.dailyDescriptions?.[day] || '';
+                              if (description.trim()) {
+                                return (
+                                  <div key={day} className="text-xs">
+                                    <span className="font-medium text-gray-700 capitalize">
+                                      {day}:
+                                    </span>
+                                    <div className="text-gray-500 ml-2 truncate">
+                                      {description.substring(0, 60)}{description.length > 60 ? '...' : ''}
+                                    </div>
                                   </div>
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })}
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        )}
+                        {!timesheet.dailyDescriptions && (
+                          <div className="text-xs text-gray-400">
+                            No activities recorded
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {!timesheet.dailyHours && (
-                      <div className="text-xs text-gray-400 mt-1">
-                        Legacy timesheet format
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="space-y-1">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(timesheet.status)}`}>
+                          {getStatusText(timesheet.status)}
+                        </span>
+                        {timesheet.status === 'mentor-approved' && (
+                          <div className="text-xs text-blue-600">
+                            Previously approved by Mentor
+                          </div>
+                        )}
+                        {timesheet.status === 'approved' && (
+                          <div className="text-xs text-green-600">
+                            Fully Approved
+                          </div>
+                        )}
+                        {timesheet.status === 'rejected' && (
+                          <div className="text-xs text-red-600">
+                            Rejected by {timesheet.rejectedByRole?.toUpperCase()}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(timesheet.status)}`}>
-                        {timesheet.status.charAt(0).toUpperCase() + timesheet.status.slice(1)}
-                      </span>
-                      {timesheet.approvedByRole && (
-                        <div className="text-xs text-gray-500">
-                          by {timesheet.approvedByRole.toUpperCase()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {timesheet.submittedAt?.toLocaleDateString() || 'Unknown'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {(timesheet.status === 'pending' || timesheet.status === 'mentor-approved') ? (
+                        <div className="space-y-2">
+                          <textarea
+                            placeholder="Add feedback (optional)"
+                            value={feedbackInputs[timesheet.id] || ''}
+                            onChange={(e) => handleFeedbackChange(timesheet.id, e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            rows="2"
+                          />
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleApproval(timesheet.id, true, timesheet)}
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleApproval(timesheet.id, false, timesheet)}
+                              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm"
+                            >
+                              Reject
+                            </button>
+                          </div>
                         </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">
+                          {timesheet.status === 'approved' ? 'Approved' : 'Rejected'}
+                        </span>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {timesheet.submittedAt?.toLocaleDateString() || 'Unknown'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {timesheet.status === 'pending' ? (
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleApproval(timesheet.id, true)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => {
-                            const reason = prompt('Reason for rejection (optional):');
-                            handleApproval(timesheet.id, false, reason || '');
-                          }}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm"
-                        >
-                          Reject
-                        </button>
+                    </td>
+                  </tr>
+                  {/* Expanded view for activities and feedback */}
+                  <tr>
+                    <td colSpan="6" className="px-6 py-4 bg-gray-50">
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="font-medium text-gray-900 text-sm mb-2">Daily Activities:</h4>
+                          {timesheet.dailyDescriptions && (
+                            <div className="space-y-2">
+                              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map((day) => {
+                                const description = timesheet.dailyDescriptions?.[day];
+                                if (description?.trim()) {
+                                  return (
+                                    <div key={day} className="text-sm">
+                                      <div className="font-medium text-gray-700 capitalize mb-1">
+                                        {day}:
+                                      </div>
+                                      <div className="text-gray-600 ml-4 whitespace-pre-line">
+                                        {description}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        {timesheet.mentorFeedback && (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="font-medium text-blue-800 text-sm">Mentor Feedback:</div>
+                            <div className="text-blue-700 text-sm mt-1">{timesheet.mentorFeedback}</div>
+                          </div>
+                        )}
+                        {timesheet.hrFeedback && (
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                            <div className="font-medium text-green-800 text-sm">HR Feedback:</div>
+                            <div className="text-green-700 text-sm mt-1">{timesheet.hrFeedback}</div>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <span className="text-gray-400 text-sm">
-                        {timesheet.status === 'approved' ? 'Approved' : 'Rejected'}
-                      </span>
-                    )}
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                </>
               ))}
             </tbody>
           </table>
