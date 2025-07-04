@@ -153,7 +153,10 @@ export default function MentorApproval() {
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           >
             <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
+            <option value="mentor-approved">Mentor Approved</option>
+            <option value="approved">Fully Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="all">All</option>
           </select>
         </div>
       </div>
@@ -180,10 +183,10 @@ export default function MentorApproval() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Intern Name
+                  Mentee Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Week
+                  Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Activities
@@ -206,15 +209,36 @@ export default function MentorApproval() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       <div>
                         <div>{timesheet.internName || timesheet.submitterName}</div>
-                        <div className="text-xs text-gray-500">{timesheet.department}</div>
+                        <div className="text-xs text-gray-500">
+                          {timesheet.department} • {timesheet.submitterRole === 'attachee' ? 'Attachee' : 'Intern'}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {timesheet.week}
+                      <div>
+                        {timesheet.date ? (
+                          <div>
+                            <div className="font-medium">{new Date(timesheet.date).toLocaleDateString('en-US', { 
+                              weekday: 'short', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}</div>
+                            <div className="text-xs text-gray-400 capitalize">{timesheet.dayOfWeek || 'Unknown'}</div>
+                          </div>
+                        ) : (
+                          <div className="font-medium">{timesheet.week}</div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="max-w-xs">
-                        {timesheet.dailyDescriptions && (
+                        {timesheet.description ? (
+                          <div className="text-xs">
+                            <div className="text-gray-500 truncate">
+                              {timesheet.description.substring(0, 80)}{timesheet.description.length > 80 ? '...' : ''}
+                            </div>
+                          </div>
+                        ) : timesheet.dailyDescriptions ? (
                           <div className="space-y-1">
                             {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map((day) => {
                               const description = timesheet.dailyDescriptions?.[day] || '';
@@ -233,8 +257,7 @@ export default function MentorApproval() {
                               return null;
                             })}
                           </div>
-                        )}
-                        {!timesheet.dailyDescriptions && (
+                        ) : (
                           <div className="text-xs text-gray-400">
                             No activities recorded
                           </div>
@@ -304,8 +327,19 @@ export default function MentorApproval() {
                     <td colSpan="6" className="px-6 py-4 bg-gray-50">
                       <div className="space-y-3">
                         <div>
-                          <h4 className="font-medium text-gray-900 text-sm mb-2">Daily Activities:</h4>
-                          {timesheet.dailyDescriptions && (
+                          <h4 className="font-medium text-gray-900 text-sm mb-2">
+                            Activities for {timesheet.date ? new Date(timesheet.date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            }) : `Week ${timesheet.week}`}:
+                          </h4>
+                          {timesheet.description ? (
+                            <div className="text-sm text-gray-600 whitespace-pre-line">
+                              {timesheet.description}
+                            </div>
+                          ) : timesheet.dailyDescriptions ? (
                             <div className="space-y-2">
                               {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map((day) => {
                                 const description = timesheet.dailyDescriptions?.[day];
@@ -324,6 +358,8 @@ export default function MentorApproval() {
                                 return null;
                               })}
                             </div>
+                          ) : (
+                            <div className="text-sm text-gray-400">No activities recorded</div>
                           )}
                         </div>
                         {timesheet.mentorFeedback && (
