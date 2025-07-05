@@ -1,5 +1,6 @@
 import { doc, updateDoc, arrayUnion, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { sendContractExpiryEmail } from './emailService';
 
 // Function to add notification to a user
 export const addNotification = async (userId, notification) => {
@@ -38,12 +39,31 @@ export const checkContractExpiries = async () => {
         
         const userId = profileData.internUid;
         
+        // Get user data for email
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        const userData = userDoc.exists() ? userDoc.data() : null;
+        
         // Check if contract expires in 2 weeks
         if (contractEndDate <= twoWeeksFromNow && contractEndDate > oneWeekFromNow) {
           await addNotification(userId, {
             message: `Your contract will expire in 2 weeks on ${contractEndDate.toLocaleDateString()}`,
             type: 'contract_expiry_2weeks'
           });
+          
+          // Send email notification
+          if (userData && userData.email) {
+            try {
+              await sendContractExpiryEmail(
+                userData.email,
+                userData.fullName,
+                14,
+                contractEndDate.toLocaleDateString()
+              );
+              console.log(`Contract expiry email sent to ${userData.email} (2 weeks)`);
+            } catch (emailError) {
+              console.error('Failed to send contract expiry email:', emailError);
+            }
+          }
         }
         // Check if contract expires in 1 week
         else if (contractEndDate <= oneWeekFromNow && contractEndDate > now) {
@@ -51,6 +71,21 @@ export const checkContractExpiries = async () => {
             message: `Your contract will expire in 1 week on ${contractEndDate.toLocaleDateString()}`,
             type: 'contract_expiry_1week'
           });
+          
+          // Send email notification
+          if (userData && userData.email) {
+            try {
+              await sendContractExpiryEmail(
+                userData.email,
+                userData.fullName,
+                7,
+                contractEndDate.toLocaleDateString()
+              );
+              console.log(`Contract expiry email sent to ${userData.email} (1 week)`);
+            } catch (emailError) {
+              console.error('Failed to send contract expiry email:', emailError);
+            }
+          }
         }
       }
     }
@@ -66,12 +101,31 @@ export const checkContractExpiries = async () => {
         
         const userId = profileData.attacheeUid;
         
+        // Get user data for email
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        const userData = userDoc.exists() ? userDoc.data() : null;
+        
         // Check if contract expires in 2 weeks
         if (contractEndDate <= twoWeeksFromNow && contractEndDate > oneWeekFromNow) {
           await addNotification(userId, {
             message: `Your contract will expire in 2 weeks on ${contractEndDate.toLocaleDateString()}`,
             type: 'contract_expiry_2weeks'
           });
+          
+          // Send email notification
+          if (userData && userData.email) {
+            try {
+              await sendContractExpiryEmail(
+                userData.email,
+                userData.fullName,
+                14,
+                contractEndDate.toLocaleDateString()
+              );
+              console.log(`Contract expiry email sent to ${userData.email} (2 weeks)`);
+            } catch (emailError) {
+              console.error('Failed to send contract expiry email:', emailError);
+            }
+          }
         }
         // Check if contract expires in 1 week
         else if (contractEndDate <= oneWeekFromNow && contractEndDate > now) {
@@ -79,6 +133,21 @@ export const checkContractExpiries = async () => {
             message: `Your contract will expire in 1 week on ${contractEndDate.toLocaleDateString()}`,
             type: 'contract_expiry_1week'
           });
+          
+          // Send email notification
+          if (userData && userData.email) {
+            try {
+              await sendContractExpiryEmail(
+                userData.email,
+                userData.fullName,
+                7,
+                contractEndDate.toLocaleDateString()
+              );
+              console.log(`Contract expiry email sent to ${userData.email} (1 week)`);
+            } catch (emailError) {
+              console.error('Failed to send contract expiry email:', emailError);
+            }
+          }
         }
       }
     }
