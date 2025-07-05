@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import MentorAssignment from './MentorAssignment';
 import HrTimesheetApproval from './HrTimesheetApproval';
 import ChecklistManagement from './ChecklistManagement';
+import UserManagement from './UserManagement';
 import { KENYA_INSTITUTIONS } from '../../data/institutions';
 import { KENYA_COUNTIES } from '../../data/constants';
 import moment from 'moment';
@@ -18,7 +19,7 @@ export default function HrDashboard() {
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('interns');
+  const [activeTab, setActiveTab] = useState('users');
 
   const fetchData = async () => {
     if (currentUser) {
@@ -57,7 +58,9 @@ export default function HrDashboard() {
             internsList.push({ 
               id: userDoc.id, 
               ...userData,
-              ...contractInfo
+              ...contractInfo,
+              // Default to active if isActive field doesn't exist (for existing users)
+              isActive: userData.isActive !== undefined ? userData.isActive : true
             });
           } else if (userData.role === 'attachee') {
             // Get contract information from attachee_profiles
@@ -78,7 +81,9 @@ export default function HrDashboard() {
             attacheesList.push({ 
               id: userDoc.id, 
               ...userData,
-              ...contractInfo
+              ...contractInfo,
+              // Default to active if isActive field doesn't exist (for existing users)
+              isActive: userData.isActive !== undefined ? userData.isActive : true
             });
           }
         }
@@ -164,14 +169,24 @@ export default function HrDashboard() {
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`${
+                  activeTab === 'users'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex-shrink-0`}
+              >
+                User Management
+              </button>
               <button
                 onClick={() => setActiveTab('interns')}
                 className={`${
                   activeTab === 'interns'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex-shrink-0`}
               >
                 Interns List
               </button>
@@ -181,7 +196,7 @@ export default function HrDashboard() {
                   activeTab === 'attachees'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex-shrink-0`}
               >
                 Attachees List
               </button>
@@ -191,7 +206,7 @@ export default function HrDashboard() {
                   activeTab === 'mentors'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex-shrink-0`}
               >
                 Mentor Assignment
               </button>
@@ -201,7 +216,7 @@ export default function HrDashboard() {
                   activeTab === 'timesheets'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex-shrink-0`}
               >
                 Timesheet Approval
               </button>
@@ -211,7 +226,7 @@ export default function HrDashboard() {
                   activeTab === 'checklists'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex-shrink-0`}
               >
                 Checklist Management
               </button>
@@ -278,6 +293,12 @@ export default function HrDashboard() {
           {activeTab === 'checklists' && (
             <div className="mb-6">
               <ChecklistManagement />
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="mb-6">
+              <UserManagement />
             </div>
           )}
 
@@ -386,8 +407,12 @@ export default function HrDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              Active
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              intern.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {intern.isActive ? 'Active' : 'Deactivated'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -513,8 +538,12 @@ export default function HrDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              Active
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              attachee.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {attachee.isActive ? 'Active' : 'Deactivated'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

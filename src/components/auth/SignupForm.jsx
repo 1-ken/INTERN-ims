@@ -74,7 +74,8 @@ export default function SignupForm() {
       const userData = {
         fullName: formData.fullName,
         role: formData.role,
-        department: formData.department
+        department: formData.department,
+        isActive: true // Default to active for new users
       };
 
       // Add role-specific data
