@@ -33,7 +33,11 @@ export default function LoginForm() {
         setError('User data not found');
       }
     } catch (error) {
-      setError('Failed to log in: ' + error.message);
+      if (error.message === 'ACCOUNT_DEACTIVATED') {
+        setError('Your account has been deactivated. Please contact HR for assistance.');
+      } else {
+        setError('Failed to log in: ' + error.message);
+      }
     }
 
     setLoading(false);
@@ -85,7 +89,11 @@ export default function LoginForm() {
         }
       }
     } catch (error) {
-      setError('Failed to sign in with Google: ' + error.message);
+      if (error.message === 'ACCOUNT_DEACTIVATED') {
+        setError('Your account has been deactivated. Please contact HR for assistance.');
+      } else {
+        setError('Failed to sign in with Google: ' + error.message);
+      }
     }
 
     setLoading(false);
