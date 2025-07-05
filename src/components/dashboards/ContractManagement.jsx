@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import moment from 'moment';
+import { notifyMentorOnTermination } from '../../utils/notifications';
 
 export default function ContractManagement() {
   const { currentUser } = useAuth();
@@ -274,6 +275,13 @@ export default function ContractManagement() {
       const profileRef = doc(db, profileCollection, userId);
       const userRef = doc(db, 'users', userId);
       
+      // Get current profile data to find mentor
+      const profileDoc = await getDoc(profileRef);
+      let mentorUid = null;
+      if (profileDoc.exists()) {
+        mentorUid = profileDoc.data().mentorUid;
+      }
+      
       // Update contract profile with termination info
       const terminationData = {
         contractTerminated: true,
@@ -297,6 +305,11 @@ export default function ContractManagement() {
       };
       
       await updateDoc(userRef, userDeactivationData);
+      
+      // Notify mentor if assigned
+      if (mentorUid) {
+        await notifyMentorOnTermination(userId, userRole, selectedUser.fullName, mentorUid);
+      }
       
       setSuccess(`Contract terminated and user deactivated successfully`);
       setSelectedUser(null);

@@ -7,7 +7,7 @@ import {
   sendPasswordResetEmail,
   signInWithPopup
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 
 const AuthContext = createContext();
@@ -121,6 +121,21 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Check if user is active or deactivated
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.isActive === false) {
+            // User is deactivated, sign out and notify
+            await signOut(auth);
+            alert('Your account has been deactivated. Please contact HR for assistance.');
+            setCurrentUser(null);
+            setLoading(false);
+            return;
+          }
+        }
+      }
       setCurrentUser(user);
       setLoading(false);
     });

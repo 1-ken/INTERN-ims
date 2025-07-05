@@ -4,6 +4,7 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { db } from '../../firebase';
 import OnboardingChecklist from './OnboardingChecklist';
 import TimesheetForm from './TimesheetForm';
+import NotificationBell from '../common/NotificationBell';
 import moment from 'moment';
 
 export default function InternDashboard() {
@@ -417,6 +418,7 @@ export default function InternDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">Intern Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-gray-700">Welcome, {userProfile?.fullName}</span>
               <button
                 onClick={handleLogout}

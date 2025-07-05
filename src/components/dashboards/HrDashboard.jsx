@@ -7,6 +7,8 @@ import HrTimesheetApproval from './HrTimesheetApproval';
 import ChecklistManagement from './ChecklistManagement';
 import UserManagement from './UserManagement';
 import ContractManagement from './ContractManagement';
+import NotificationBell from '../common/NotificationBell';
+import ContractExpiryChecker from '../common/ContractExpiryChecker';
 import { KENYA_INSTITUTIONS } from '../../data/institutions';
 import { KENYA_COUNTIES } from '../../data/constants';
 import moment from 'moment';
@@ -154,6 +156,7 @@ export default function HrDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">HR Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-gray-700">Welcome, {userProfile?.fullName}</span>
               <button
                 onClick={handleLogout}
@@ -245,6 +248,9 @@ export default function HrDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Contract Expiry Checker */}
+      <ContractExpiryChecker />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
