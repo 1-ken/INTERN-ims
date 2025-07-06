@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
+import NotificationBell from '../common/NotificationBell';
 import OnboardingChecklist from './OnboardingChecklist';
 import TimesheetForm from './TimesheetForm';
 import moment from 'moment';
@@ -417,6 +418,7 @@ export default function AttacheeDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">Attachee Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-gray-700">Welcome, {userProfile?.fullName}</span>
               <button
                 onClick={handleLogout}

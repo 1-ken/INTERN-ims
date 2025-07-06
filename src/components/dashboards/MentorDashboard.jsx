@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import MentorApproval from './MentorApproval';
+import NotificationBell from '../common/NotificationBell';
 
 export default function MentorDashboard() {
   const { currentUser, logout } = useAuth();
@@ -103,6 +104,7 @@ export default function MentorDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">Mentor Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-gray-700">Welcome, {userProfile?.fullName}</span>
               <button
                 onClick={handleLogout}

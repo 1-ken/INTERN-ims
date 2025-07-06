@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import moment from 'moment';
+import { notifyMentorOnTermination } from '../../utils/notifications';
+import { sendContractTerminationEmail } from '../../utils/emailService';
 
 export default function ContractManagement() {
   const { currentUser } = useAuth();
@@ -274,6 +276,13 @@ export default function ContractManagement() {
       const profileRef = doc(db, profileCollection, userId);
       const userRef = doc(db, 'users', userId);
       
+      // Get current profile data to find mentor
+      const profileDoc = await getDoc(profileRef);
+      let mentorUid = null;
+      if (profileDoc.exists()) {
+        mentorUid = profileDoc.data().mentorUid;
+      }
+      
       // Update contract profile with termination info
       const terminationData = {
         contractTerminated: true,
@@ -298,7 +307,30 @@ export default function ContractManagement() {
       
       await updateDoc(userRef, userDeactivationData);
       
-      setSuccess(`Contract terminated and user deactivated successfully`);
+      // Send email notification to the user about contract termination
+      try {
+        const emailResult = await sendContractTerminationEmail(
+          selectedUser.email,
+          selectedUser.fullName,
+          terminationReason
+        );
+        
+        if (emailResult.success) {
+          console.log('Contract termination email sent successfully');
+        } else {
+          console.warn('Failed to send contract termination email:', emailResult.message);
+        }
+      } catch (emailError) {
+        console.error('Error sending contract termination email:', emailError);
+        // Don't fail the entire operation if email fails
+      }
+      
+      // Notify mentor if assigned
+      if (mentorUid) {
+        await notifyMentorOnTermination(userId, userRole, selectedUser.fullName, mentorUid);
+      }
+      
+      setSuccess(`Contract terminated, user deactivated, and email notification sent successfully`);
       setSelectedUser(null);
       setShowConfirmModal(false);
       setTerminationReason('');
